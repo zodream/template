@@ -1,0 +1,25 @@
+{
+    "name": "zodream/template",
+    "description": "template",
+    "keywords": ["template", "zodream"],
+    "homepage": "https://github.com/zodream/template",
+    "license": "Apache Licence 2.0",
+    "authors": [
+        {
+            "name" : "Jason Zou",
+            "email" : "zodream@fixmail.com",
+            "homepage" : "http://www.zodream.cn/",
+            "role" : "Developer"
+        }
+    ],
+    "require": {
+        "php": ">=5.6.0",
+        "zodream/zodream": "*",
+        "zodream/helpers": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Zodream\\Template\\": "src/"
+        }
+    }
+}
