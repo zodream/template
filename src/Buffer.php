@@ -121,5 +121,5 @@ class Buffer {
     public function getLine() {
         return $this->line;
     }
-    
+
 }
