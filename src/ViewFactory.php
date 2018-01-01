@@ -114,12 +114,21 @@ class ViewFactory extends MagicObject {
     }
 
     /**
+     * 获取或添加后缀
+     * @param null $name
+     * @return string
+     */
+    public function fileSuffix($name = null) {
+        return $name.$this->configs['suffix'];
+    }
+
+    /**
      * 判断模板文件是否存在
      * @param string $file
      * @return bool
      */
     public function exist($file) {
-        return $this->directory->hasFile($file.$this->configs['suffix']);
+        return $this->directory->hasFile($this->fileSuffix($file));
     }
 
     /**
@@ -131,7 +140,7 @@ class ViewFactory extends MagicObject {
      */
     public function make($file) {
         if (!$file instanceof File) {
-            $file = $this->directory->childFile($file.$this->configs['suffix']);
+            $file = $this->directory->childFile($this->fileSuffix($file));
         }
         if (!$file->exist()) {
             throw new FileException($file);
@@ -166,6 +175,7 @@ class ViewFactory extends MagicObject {
      * @param string $content
      * @param array $options
      * @param null $key
+     * @return ViewFactory
      */
     public function registerMetaTag($content, $options = array(), $key = null) {
         if ($key === null) {
@@ -173,8 +183,15 @@ class ViewFactory extends MagicObject {
         } else {
             $this->metaTags[$key] = Html::meta($content, $options);
         }
+        return $this;
     }
 
+    /**
+     * @param $url
+     * @param array $options
+     * @param null $key
+     * @return $this
+     */
     public function registerLinkTag($url, $options = array(), $key = null) {
         if ($key === null) {
             $this->linkTags[] = Html::link($url, $options);
@@ -187,6 +204,7 @@ class ViewFactory extends MagicObject {
     public function registerCss($css, $key = null) {
         $key = $key ?: md5($css);
         $this->css[$key] = Html::style($css);
+        return $this;
     }
 
     public function registerCssFile($url, $options = array(), $key = null) {

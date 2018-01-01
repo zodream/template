@@ -19,13 +19,7 @@ use Zodream\Service\Routing\Url;
  * Class View
  * @package Zodream\Domain\View
  * @property string $title
- * 
- * @method ViewFactory registerMetaTag($content, $options = array(), $key = null)
- * @method ViewFactory registerLinkTag($url, $options = array(), $key = null)
- * @method ViewFactory registerCss($css, $key = null)
- * @method ViewFactory registerCssFile($url, $options = array(), $key = null)
- * @method ViewFactory registerJs($js, $position = 'html body end', $key = null)
- * @method ViewFactory registerJsFile($url, $options = [], $key = null)
+ *
  * @method ViewFactory getAssetFile($file)
  * @method ViewFactory get($key, $default = null)
  * @method ViewFactory set($key, $value = null)
@@ -153,6 +147,7 @@ class View {
      * @param array $param
      * @param string $name
      * @return mixed
+     * @throws \Exception
      */
     public function t($message, $param = [], $name = 'app') {
         return Factory::i18n()->translate($message, $param, $name);
@@ -176,10 +171,68 @@ class View {
     public function asset($file) {
         return $this->url($this->factory->getAssetFile($file));
     }
+
+    /**
+     * 获取路径
+     * @param string $name
+     * @return File| string
+     */
+    protected function getExtendFile($name) {
+        if (strpos($name, './') === 0) {
+            return $this->file->getDirectory()->getFile($this->factory->fileSuffix($name));
+        }
+        return $name;
+    }
+
+    /**
+     * 加载其他文件
+     * @param $name
+     * @param array $data
+     * @return $this
+     * @throws FileException
+     * @throws \Exception
+     */
     public function extend($name, $data = array()) {
         foreach ((array)$name as $item) {
-            echo $this->factory->render($item, $data);
+            echo $this->factory->render($this->getExtendFile($item), $data);
         }
+        return $this;
+    }
+
+    /**
+     *
+     * @param string $content
+     * @param array $options
+     * @param null $key
+     * @return View
+     */
+    public function registerMetaTag($content, $options = array(), $key = null) {
+        $this->factory->registerMetaTag($content, $options, $key);
+        return $this;
+    }
+
+    public function registerLinkTag($url, $options = array(), $key = null) {
+        $this->factory->registerLinkTag($url, $options, $key);
+        return $this;
+    }
+
+    public function registerCss($css, $key = null) {
+        $this->factory->registerCss($css, $key);
+        return $this;
+    }
+
+    public function registerCssFile($url, $options = array(), $key = null) {
+            $this->factory->registerCssFile($url, $options, $key);
+        return $this;
+    }
+
+    public function registerJs($js, $position = self::HTML_FOOT, $key = null) {
+        $this->factory->registerJs($js, $position, $key);
+        return $this;
+    }
+
+    public function registerJsFile($url, $options = [], $key = null) {
+        $this->factory->registerJsFile($url, $options, $key);
         return $this;
     }
     
