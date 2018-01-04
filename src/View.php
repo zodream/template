@@ -85,7 +85,12 @@ class View {
             throw $e;
         }
     }
-    
+
+    /**
+     * @return string
+     * @throws FileException
+     * @throws \Exception
+     */
     protected function renderContent() {
         if (!$this->file->exist()) {
             throw new FileException($this->file.' NOT EXIST!');
@@ -245,7 +250,7 @@ class View {
     }
     
     public function __unset($name) {
-        $this->factory->delete($name);
+        $this->factory->deleteAttribute($name);
     }
 
     public function __call($name, $arguments) {
