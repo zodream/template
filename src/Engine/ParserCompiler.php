@@ -69,9 +69,60 @@ class ParserCompiler extends CompilerEngine {
 
     protected $allowFilters = true;
 
+    protected $funcList = [
+
+    ];
+
+    /**
+     * 设置提取标签
+     * @param $begin
+     * @param $end
+     * @return $this
+     */
     public function setTag($begin, $end) {
         $this->beginTag = $begin;
         $this->endTag = $end;
+        return $this;
+    }
+
+    /**
+     * 注册方法
+     * @param $tag
+     * @param $func
+     * @return $this
+     */
+    public function registerFunc($tag, $func = null) {
+        $this->funcList[$tag] = empty($func) ? $tag : $func;
+        return $this;
+    }
+
+    /**
+     * 判断是否有方法
+     * @param $tag
+     * @return bool
+     */
+    public function hasFunc($tag) {
+        return array_key_exists($tag, $this->funcList);
+    }
+
+    /**
+     * 执行方法
+     * @param $tag
+     * @param $args
+     * @return bool|string
+     */
+    public function invokeFunc($tag, $args) {
+        if (!$this->hasTag($tag)) {
+            return false;
+        }
+        $func = $this->funcList[$tag];
+        if (is_string($func)) {
+            return sprintf('%s(%s)', $func, $tag);
+        }
+        if (is_callable($func)) {
+            return call_user_func($func, $args);
+        }
+        return false;
     }
 
     public function parseFile(File $file) {
@@ -281,7 +332,7 @@ class ParserCompiler extends CompilerEngine {
         if ($tag == 'elseif' || $tag == 'else if') {
             return sprintf('<?php elseif(%s):?>', $content);
         }
-        return false;
+        return $this->invokeFunc($tag, $content);
     }
 
     protected function parseIf($content) {

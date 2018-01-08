@@ -67,8 +67,7 @@ class ViewFactory extends MagicObject {
             'cache' => 'data/views'
         ]);
         if (class_exists($this->configs['driver'])) {
-            $class = $this->configs['driver'];
-            $this->engine = new $class($this);
+            $this->setEngine($this->configs['driver']);
         }
         $this->setAssetsDirectory($this->configs['assets']);
         $this->cache = new FileCache();
@@ -110,6 +109,15 @@ class ViewFactory extends MagicObject {
             $directory = Factory::root()->childDirectory($directory);
         }
         $this->directory = $directory;
+        return $this;
+    }
+
+    /**
+     * @param EngineObject $engine
+     * @return ViewFactory
+     */
+    public function setEngine($engine) {
+        $this->engine = is_string($engine) ? new $engine($this) : $engine;
         return $this;
     }
 
