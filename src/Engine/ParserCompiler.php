@@ -3,7 +3,6 @@ namespace Zodream\Template\Engine;
 
 use Zodream\Disk\File;
 use Zodream\Helpers\Str;
-use Zodream\Infrastructure\Support\Html;
 
 /**
 {>}         <?php
@@ -70,7 +69,8 @@ class ParserCompiler extends CompilerEngine {
     protected $allowFilters = true;
 
     protected $funcList = [
-
+        'header' => '$this->header',
+        'footer' => '$this->header',
     ];
 
     /**
@@ -112,12 +112,12 @@ class ParserCompiler extends CompilerEngine {
      * @return bool|string
      */
     public function invokeFunc($tag, $args) {
-        if (!$this->hasTag($tag)) {
+        if (!$this->hasFunc($tag)) {
             return false;
         }
         $func = $this->funcList[$tag];
         if (is_string($func)) {
-            return sprintf('%s(%s)', $func, $tag);
+            return $this->setValueToFunc($func, $args);
         }
         if (is_callable($func)) {
             return call_user_func($func, $args);
@@ -125,13 +125,24 @@ class ParserCompiler extends CompilerEngine {
         return false;
     }
 
+    protected function setValueToFunc($func, $args) {
+        if (strpos($func, '%') === false) {
+            return sprintf('<?=%s(%s)?>', $func, $args);
+        }
+        if (substr_count($func, '%') == 1) {
+            return sprintf($func, $args);
+        }
+        return sprintf($func, ...explode(',', $args));
+    }
+
     public function parseFile(File $file) {
         return $this->parse($file->read());
     }
 
     public function parse($content) {
+        $this->initHeaders();
         $content = preg_replace($this->salePattern, '', $content);
-        $pattern = sprintf('/%s\s*(.+?)\s*%s(\r?\n)?/s', $this->beginTag, $this->endTag);
+        $pattern = sprintf('/%s\s*(.+?)\s*%s/s', $this->beginTag, $this->endTag);
         return preg_replace_callback($pattern, [$this, 'replaceCallback'], $content);
     }
 
@@ -181,24 +192,35 @@ class ParserCompiler extends CompilerEngine {
         return $match[0];
     }
 
+    protected function arrayToLink(array $args, $format) {
+        return implode('', array_map(function($item) use ($format) {
+            return sprintf($format, $item);
+        }, $args));
+    }
+
+    /**
+     * 引入js,css 或加载文件
+     * @param $content
+     * @return bool|null|string
+     */
     protected function parseInclude($content) {
         if (!preg_match('/^(link|script|js|css|php|tpl)\s+(src|href|file)=[\'"]?([^"\']+)[\'"]?/i', $content, $match)) {
             return false;
         }
         $match[1] = strtolower($match[1]);
         $files = explode(',', $match[3]);
+        if ($match[1] == 'link' || $match[1] == 'css') {
+            $this->addHeader(sprintf('$this%s;',
+                $this->arrayToLink($files, '->registerCssFile(\'%s\')')));
+            return null;
+        }
+        if ($match[1] == 'js' || $match[1] == 'script') {
+            $this->addHeader(sprintf('$this%s;',
+                $this->arrayToLink($files, '->registerJsFile(\'%s\')')));
+            return null;
+        }
         $content = '';
         foreach ($files as $file) {
-            if ($match[1] == 'link' || $match[1] == 'css') {
-                $content .= Html::link($file);
-                continue;
-            }
-            if ($match[1] == 'js' || $match[1] == 'script') {
-                $content .= Html::script([
-                    'src' => $file
-                ]);
-                continue;
-            }
             if ($match[1] == 'php') {
                 $content .= sprintf('<?php include \'%s\';?>', $file);
                 continue;
@@ -212,7 +234,11 @@ class ParserCompiler extends CompilerEngine {
         return $content;
     }
 
-
+    /**
+     * 转化值
+     * @param $val
+     * @return mixed|string
+     */
     protected function parseVal($val) {
         if (strrpos($val, '|') !== false) {
             $filters = explode('|', $val);
@@ -245,6 +271,11 @@ class ParserCompiler extends CompilerEngine {
         return $p;
     }
 
+    /**
+     * 输出数组
+     * @param $val
+     * @return mixed|string
+     */
     protected function makeVar($val) {
         if (strrpos($val, '.') === false) {
             return $val;
@@ -294,6 +325,11 @@ class ParserCompiler extends CompilerEngine {
         return false;
     }
 
+    /**
+     * 转化赋值
+     * @param $content
+     * @return bool|string
+     */
     protected function parseAssign($content) {
         $eqI = strpos($content, '=');
         $dI = strpos($content, ',');
@@ -312,6 +348,11 @@ class ParserCompiler extends CompilerEngine {
         return false;
     }
 
+    /**
+     * 转化语句块 if for switch
+     * @param $content
+     * @return bool|string
+     */
     protected function parseBlockTag($content) {
         list($tag, $content) = explode(':', $content, 2);
         if ($tag == 'for') {
@@ -335,6 +376,11 @@ class ParserCompiler extends CompilerEngine {
         return $this->invokeFunc($tag, $content);
     }
 
+    /**
+     * 转化 if
+     * @param $content
+     * @return string
+     */
     protected function parseIf($content) {
         $args = explode(',', $content);
         $length = count($args);
@@ -348,6 +394,11 @@ class ParserCompiler extends CompilerEngine {
             $args[0], $args[1], $args[2]);
     }
 
+    /**
+     * 转化switch
+     * @param $content
+     * @return string
+     */
     protected function parseSwitch($content) {
         $args = explode(',', $content);
         if (count($args) == 1) {
@@ -356,6 +407,11 @@ class ParserCompiler extends CompilerEngine {
         return sprintf('<?php switch(%s): case %s:?>', $args[0], $args[1]);
     }
 
+    /**
+     * 转化 for
+     * @param $content
+     * @return string
+     */
     protected function parseFor($content) {
         $args = strpos($content, ';') !== false ?
             explode(';', $content) :
@@ -457,6 +513,11 @@ class ParserCompiler extends CompilerEngine {
         return false;
     }
 
+    /**
+     * 根据第一个字符转化
+     * @param $content
+     * @return bool|string
+     */
     protected function parseFirstTag($content) {
         $first = substr($content, 0, 1);
         if ($first == '>') {
@@ -473,6 +534,10 @@ class ParserCompiler extends CompilerEngine {
         }
         if ($first == '~') {
             return '<?php for('.substr($content, 1).'):?>';
+        }
+        // 直接输出
+        if ($first == '=') {
+            return '<?='.substr($content, 1).'?>';
         }
         return false;
     }
@@ -498,6 +563,9 @@ class ParserCompiler extends CompilerEngine {
         return '<?php end'.$tag.';?>';
     }
 
+    /**
+     * @return string
+     */
     protected function parseEndBlock() {
         list($tag, $this->blockTag) = [$this->blockTag, false];
         if ($tag == 'php' || $tag === '') {
@@ -509,8 +577,14 @@ class ParserCompiler extends CompilerEngine {
         if ($tag == 'css') {
             return '</style>';
         }
+        return null;
     }
 
+    /**
+     * 转化语句块
+     * @param $content
+     * @return string
+     */
     protected function parseBlock($content) {
         if ($content == '' || $content == 'php') {
             $this->blockTag = 'php';

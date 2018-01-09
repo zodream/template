@@ -22,9 +22,9 @@ use Zodream\Helpers\Arr;
 
 class ViewFactory extends MagicObject {
 
-    protected $configKey = 'view';
-    protected $configs = array();
     use ConfigTrait;
+
+    protected $configKey = 'view';
 
 
     /**
@@ -71,7 +71,10 @@ class ViewFactory extends MagicObject {
         }
         $this->setAssetsDirectory($this->configs['assets']);
         $this->cache = new FileCache();
-        $this->cache->setDirectory($this->configs['cache']);
+        $this->cache->setDirectory($this->configs['cache'])
+            ->setConfigs([
+                'extension' => '.phtml'
+            ]);
         $this->setDirectory($this->configs['directory']);
         $this->set('__zd', $this);
     }
@@ -122,6 +125,13 @@ class ViewFactory extends MagicObject {
     }
 
     /**
+     * @return EngineObject
+     */
+    public function getEngine() {
+        return $this->engine;
+    }
+
+    /**
      * 获取或添加后缀
      * @param null $name
      * @return string
@@ -157,7 +167,7 @@ class ViewFactory extends MagicObject {
             return new View($this, $file);
         }
         /** IF HAS ENGINE*/
-        $cacheFile = $this->cache->getCacheFile(sha1($file->getName()).'.php');
+        $cacheFile = $this->cache->getCacheFile($file->getName());
         if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
             $this->engine->compile($file, $cacheFile);
         }
