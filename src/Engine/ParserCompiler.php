@@ -152,41 +152,54 @@ class ParserCompiler extends CompilerEngine {
 
     protected function replaceCallback($match) {
         $content = $match[1];
+        // 判断文本快结束符
         if ($content == '/>' && $this->blockTag !== false) {
             return $this->parseEndBlock();
         }
+        // 判断是否处在文本块中
         if (empty($content) || $this->blockTag !== false) {
             return $match[0];
         }
+        // 转化引入文件
         if (false !== ($line = $this->parseInclude($content))) {
             return $line;
         }
+        // 转化注释
         if (false !== ($line = $this->parseNote($content))) {
             return $line;
         }
+        // 转化字符串标签
         if (false !== ($line = $this->parseTag($content))) {
             return $line;
         }
+        // 根据第一个字符转化
         if (false !== ($line = $this->parseFirstTag($content))) {
             return $line;
         }
-        if (strpos($content, ':') > 0 && false !== ($line = $this->parseBlockTag($content))) {
+        // 根据 : 转化
+        if (strpos($content, ':') > 0
+            && false !== ($line = $this->parseBlockTag($content))) {
             return $line;
         }
+        // 转化 ?: 表达式
         if (false !== ($line = $this->parseLambda($content))) {
             return $line;
         }
+        // 转化赋值语句
         if (false !== ($line = $this->parseAssign($content))) {
             return $line;
         }
+        // 转化设置变量
         if ($this->hasOrderTag($content, ['$', '='])) {
             return '<?php '.$content.';?>';
         }
-        if ($this->hasOrderTag($content, ['$', ',', '$']) > 0) {
+        // 转化输出默认值
+        if ($this->hasOrderTag($content, ['$', ',', ['$', '\'', '"']]) > 0) {
             $args = explode(',', $content, 2);
             return sprintf('<?php echo isset(%s) ? %s : %s; ?>', $args[0], $args[1]);
         }
-        if (preg_match('/^\$[_\w\.\[\]\|\$]+$/i', $content)) {
+        // 转化输出值
+        if (preg_match('/^\$[_\w\.-\>\[\]\|\$]+$/i', $content)) {
             return sprintf('<?php echo %s;?>', $this->parseVal($content));
         }
         return $match[0];
@@ -226,7 +239,7 @@ class ParserCompiler extends CompilerEngine {
                 continue;
             }
             if ($match[1] == 'tpl') {
-                $content .= sprintf('<?php include \'%s\';?>', $file);
+                $content .= sprintf('<?php $this->extend(\'%s\');?>', $file);
                 continue;
             }
             return false;
@@ -297,8 +310,8 @@ class ParserCompiler extends CompilerEngine {
     protected function hasOrderTag($content, $search) {
         $last = -1;
         foreach ((array)$search as $tag) {
-            $index = strpos($content, $tag,
-                $last < 0 ? 0 : $last);
+            $tmpLast = $last < 0 ? 0 : $last;
+            $index = $this->hasOneTag($content, $tag, $tmpLast);
             if ($index === false) {
                 return false;
             }
@@ -308,6 +321,30 @@ class ParserCompiler extends CompilerEngine {
             $last = $index;
         }
         return true;
+    }
+
+    /**
+     * 是否有其中一个标签
+     * @param $content
+     * @param array $tags
+     * @param int $index
+     * @return bool|int
+     */
+    protected function hasOneTag($content, $tags, $index = 0) {
+        if (!is_array($tags)) {
+            return strpos($content, $tags, $index);
+        }
+        foreach ($tags as $tag) {
+            $curr = strpos($content, $tag, $index);
+            if ($curr === false) {
+                continue;
+            }
+            if ($curr <= $index) {
+                continue;
+            }
+            return $curr;
+        }
+        return false;
     }
 
     /**
@@ -365,7 +402,7 @@ class ParserCompiler extends CompilerEngine {
             sprintf('<?php case %s:?>', $content);
         }
         if ($tag == 'extend') {
-            return '';
+            return $this->parseExtend($content);
         }
         if ($tag == 'if') {
             return $this->parseIf($content);
@@ -374,6 +411,33 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?php elseif(%s):?>', $content);
         }
         return $this->invokeFunc($tag, $content);
+    }
+
+    /**
+     * 加载
+     * @param $content
+     * @return null|string
+     */
+    protected function parseExtend($content) {
+        if (empty($content)) {
+            return null;
+        }
+        $files = [];
+        $data = '';
+        foreach (explode(',', $content) as $name) {
+            if (strpos($name, '[') !== false) {
+                $start = strpos($content, '[');
+                $data = substr($content, $start,
+                    strpos($content, ']', $start) - $start - 1);
+                break;
+            }
+            if (strpos($name, '$') !== 0) {
+                $name = sprintf('\'%s\'', trim($name, '\'"'));
+            }
+            $files[] = $name;
+        }
+        return sprintf('<?php $this->extend([%s], [%s]);?>',
+            implode(',', $files), $data);
     }
 
     /**

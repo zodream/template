@@ -24,6 +24,8 @@ class ViewFactory extends MagicObject {
 
     use ConfigTrait;
 
+    protected $configs = [];
+
     protected $configKey = 'view';
 
 
