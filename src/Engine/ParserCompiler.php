@@ -68,6 +68,12 @@ class ParserCompiler extends CompilerEngine {
 
     protected $allowFilters = true;
 
+    /**
+     * 临时替代变量
+     * @var string
+     */
+    protected $tplHash = 'c7a9cdc11f7d259de872d3e6ff9739be';
+
     protected $funcList = [
         'header' => '$this->header',
         'footer' => '$this->header',
@@ -185,6 +191,10 @@ class ParserCompiler extends CompilerEngine {
         if (false !== ($line = $this->parseLambda($content))) {
             return $line;
         }
+        // 转化 this.
+        if (false !== $this->parseThis($content)) {
+            return $line;
+        }
         // 转化赋值语句
         if (false !== ($line = $this->parseAssign($content))) {
             return $line;
@@ -203,6 +213,14 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?php echo %s;?>', $this->parseVal($content));
         }
         return $match[0];
+    }
+
+    protected function parseThis($content) {
+        if (strpos($content, 'this.') !== 0) {
+            return false;
+        }
+        list($tag, $val) = explode('=', substr($content, 5));
+        return sprintf('<?php $this->%s = %s;?>', $tag, $this->getRealVal($val));
     }
 
     protected function arrayToLink(array $args, $format) {
@@ -245,6 +263,26 @@ class ParserCompiler extends CompilerEngine {
             return false;
         }
         return $content;
+    }
+
+    protected function getRealVal($val) {
+        if (empty($val)) {
+            return 'null';
+        }
+        if (is_numeric($val)) {
+            return $val;
+        }
+        if ($val == 'true' || $val == 'false') {
+            return $val;
+        }
+        $first = substr($val, 0, 1);
+        if ($first == '$' || $first == '"') {
+            return $val;
+        }
+        if ($first == '\'') {
+            $val = trim('\'');
+        }
+        return sprintf('\'%s\'', $val);
     }
 
     /**
@@ -409,6 +447,9 @@ class ParserCompiler extends CompilerEngine {
         }
         if ($tag == 'elseif' || $tag == 'else if') {
             return sprintf('<?php elseif(%s):?>', $content);
+        }
+        if ($tag == 'url') {
+            return sprintf('<?php echo $this->url(%s) ?>', $content);
         }
         if ($tag == 'use') {
             $this->addHeader(sprintf('use \\%s;', trim($content, '\\')));
@@ -588,6 +629,10 @@ class ParserCompiler extends CompilerEngine {
      */
     protected function parseFirstTag($content) {
         $first = substr($content, 0, 1);
+        if ($first == '#') {
+            // 返回原句
+            return sprintf('%s%s%s', $this->beginTag, substr($content, 1), $this->endTag);
+        }
         if ($first == '>') {
             return $this->parseBlock(substr($content, 1));
         }
@@ -639,11 +684,11 @@ class ParserCompiler extends CompilerEngine {
         if ($tag == 'php' || $tag === '') {
             return '?>';
         }
-        if ($tag == 'js') {
-            return '</script>';
+        if ($tag == 'js' || $tag == 'css') {
+            return sprintf('<<<%s; $this->register%s($%s_%s);?>', strtoupper($tag), ucfirst($tag), $tag, $this->tplHash);
         }
-        if ($tag == 'css') {
-            return '</style>';
+        if ($tag == 'text') {
+            return null;
         }
         return null;
     }
@@ -658,13 +703,17 @@ class ParserCompiler extends CompilerEngine {
             $this->blockTag = 'php';
             return '<?php ';
         }
-        if ($content == 'js') {
+        if ($content == 'js' || $content == 'script') {
             $this->blockTag = 'js';
-            return '<script>';
+            return sprintf('<?php $js_%s = <<<JS', $this->tplHash);
         }
-        if ($content == 'css') {
+        if ($content == 'css' || $content == 'style') {
             $this->blockTag = 'css';
-            return '<style>';
+            return sprintf('<?php $css_%s = <<<CSS', $this->tplHash);
+        }
+        if ($content == 'text') {
+            $this->blockTag = 'text';
+            return null;
         }
         return sprintf('<?php %s; ?>', $content);
     }
