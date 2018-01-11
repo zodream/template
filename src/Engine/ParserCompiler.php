@@ -410,6 +410,10 @@ class ParserCompiler extends CompilerEngine {
         if ($tag == 'elseif' || $tag == 'else if') {
             return sprintf('<?php elseif(%s):?>', $content);
         }
+        if ($tag == 'use') {
+            $this->addHeader(sprintf('use \\%s;', trim($content, '\\')));
+            return null;
+        }
         return $this->invokeFunc($tag, $content);
     }
 
