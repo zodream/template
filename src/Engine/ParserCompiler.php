@@ -416,9 +416,9 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseLambda($content) {
-        if (preg_match('/(.+)=(.+)\?((.*):)?(.+)/', $content, $match)) {
+        if (preg_match('/(.+)=(.+)(\?|\|\|)((.*):)?(.+)/', $content, $match)) {
             return sprintf('<?php %s = %s ? %s : %s; ?>',
-                $match[1], $match[2], $match[4] ?: $match[2] , $match[5]);
+                $match[1], $match[2], $match[5] ?: $match[2] , $match[6]);
         }
         return false;
     }
@@ -439,6 +439,9 @@ class ParserCompiler extends CompilerEngine {
         if ($tag == 'case') {
             sprintf('<?php case %s:?>', $content);
         }
+        if ($tag == 'default') {
+            sprintf('<?php default:?>', $content);
+        }
         if ($tag == 'extend') {
             return $this->parseExtend($content);
         }
@@ -454,6 +457,9 @@ class ParserCompiler extends CompilerEngine {
         if ($tag == 'use') {
             $this->addHeader(sprintf('use \\%s;', trim($content, '\\')));
             return null;
+        }
+        if ($tag == 'break' || $tag == 'continue') {
+            return sprintf('<?php %s %s; ?>', $tag, $content);
         }
         return $this->invokeFunc($tag, $content);
     }
@@ -609,6 +615,9 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseTag($content) {
+        if ($content == 'break' || $content == 'continue') {
+            return sprintf('<?php %s; ?>', $content);
+        }
         if ($content == 'else' || $content == '+') {
             return '<?php else: ?>';
         }
