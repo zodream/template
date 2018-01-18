@@ -69,12 +69,26 @@ trait RegisterAssets {
             if (empty($item)) {
                 continue;
             }
-            $this->registerAssets[$key] = $append
-                ? array_merge($this->registerAssets[$key], $item)
-                : array_merge($item, $this->registerAssets[$key]);
+            $this->registerAssets[$key] = $this->_mergeAssets($this->registerAssets[$key], $item, $append);
             $this->currentRegisterAssets[$key] = [];
         }
         return $this;
+    }
+
+    private function _mergeAssets(array $base, array $args, $append) {
+        if (empty($base)) {
+            return $args;
+        }
+        foreach ($args as $key => $item) {
+            if (!isset($base[$key])) {
+                $base[$key] = $item;
+                continue;
+            }
+            $base[$key] = $append
+                ? array_merge($base[$key], $item)
+                : array_merge($item, $base[$key]);
+        }
+        return $base;
     }
 
     /**
@@ -218,7 +232,6 @@ trait RegisterAssets {
             $js = "jQuery(window).load(function () {\n" . implode("\n", $this->registerAssets['js'][View::JQUERY_LOAD]) . "\n});";
             $lines[] = Html::script($js, ['type' => 'text/javascript']);
         }
-
         return empty($lines) ? '' : implode(PHP_EOL, $lines);
     }
 
