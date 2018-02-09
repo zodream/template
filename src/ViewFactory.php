@@ -42,10 +42,11 @@ class ViewFactory extends MagicObject {
     protected $cache;
 
     protected $assetsDirectory;
-
-
     
     public function __construct() {
+        if (!defined('APP_MODULE')) {
+            return;
+        }
         $this->loadConfigs([
             'driver' => null,
             'directory' => 'UserInterface/'.APP_MODULE,
