@@ -67,8 +67,6 @@ class ViewFactory extends MagicObject {
         $this->set('__zd', $this);
     }
 
-
-
     
     public function setDirectory($directory) {
         if (!$directory instanceof Directory) {

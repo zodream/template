@@ -192,7 +192,7 @@ class ParserCompiler extends CompilerEngine {
             return $line;
         }
         // 转化 this.
-        if (false !== $this->parseThis($content)) {
+        if (false !== ($line = $this->parseThis($content))) {
             return $line;
         }
         // 转化赋值语句
@@ -206,17 +206,20 @@ class ParserCompiler extends CompilerEngine {
         // 转化输出默认值
         if ($this->hasOrderTag($content, ['$', ',', ['$', '\'', '"']]) > 0) {
             $args = explode(',', $content, 2);
-            return sprintf('<?php echo isset(%s) ? %s : %s; ?>', $args[0], $args[1]);
+            return sprintf('<?=isset(%s) ? %s : %s?>', $args[0], $args[1]);
         }
         // 转化输出值
-        if (preg_match('/^\$[_\w\.-\>\[\]\|\$]+$/i', $content)) {
-            return sprintf('<?php echo %s;?>', $this->parseVal($content));
+        if (preg_match('/^(\$|this.)[_\w\.-\>\[\]\|\$]+$/i', $content)) {
+            return sprintf('<?=%s?>', $this->parseVal($content));
         }
         return $match[0];
     }
 
     protected function parseThis($content) {
         if (strpos($content, 'this.') !== 0) {
+            return false;
+        }
+        if (strpos($content, '=') === false) {
             return false;
         }
         list($tag, $val) = explode('=', substr($content, 5));
@@ -297,6 +300,9 @@ class ParserCompiler extends CompilerEngine {
         }
         if (empty($val)) {
             return '';
+        }
+        if (strpos($val, 'this.') === 0) {
+            $val = '$this->'.substr($val, 5);
         }
         if (strpos($val, '.$') !== false) {
             $all = explode('.$', $val);

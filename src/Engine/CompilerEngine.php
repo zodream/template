@@ -27,7 +27,10 @@ abstract class CompilerEngine implements EngineObject {
         self::DIE_HEADER
     ];
 
-    public function __construct(ViewFactory $factory) {
+    public function __construct(ViewFactory $factory = null) {
+        if (empty($factory)) {
+            return;
+        }
         $this->factory = $factory;
     }
 
