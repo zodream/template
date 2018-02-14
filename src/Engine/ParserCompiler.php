@@ -76,7 +76,7 @@ class ParserCompiler extends CompilerEngine {
 
     protected $funcList = [
         'header' => '$this->header',
-        'footer' => '$this->header',
+        'footer' => '$this->footer',
     ];
 
     /**
