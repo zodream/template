@@ -454,6 +454,9 @@ class ParserCompiler extends CompilerEngine {
         if ($tag == 'if') {
             return $this->parseIf($content);
         }
+        if ($tag == 'page') {
+            return $this->parsePage($content);
+        }
         if ($tag == 'elseif' || $tag == 'else if') {
             return sprintf('<?php elseif(%s):?>', $content);
         }
@@ -468,6 +471,14 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?php %s %s; ?>', $tag, $content);
         }
         return $this->invokeFunc($tag, $content);
+    }
+
+    protected function parsePage($content) {
+        if (strpos($content, ',') === false) {
+            return sprintf('<?= %s->getLink() ?>');
+        }
+        list($model, $options) = explode(',', $content, 2);
+        return sprintf('<?= %s->getLink(%s) ?>', $model, $options);
     }
 
     protected function parseUrlTag($content) {
