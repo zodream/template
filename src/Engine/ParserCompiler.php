@@ -458,7 +458,7 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?php elseif(%s):?>', $content);
         }
         if ($tag == 'url') {
-            return sprintf('<?php echo $this->url(%s) ?>', $content);
+            return sprintf('<?= $this->url(%s) ?>', $this->parseUrlTag($content));
         }
         if ($tag == 'use') {
             $this->addHeader(sprintf('use \\%s;', trim($content, '\\')));
@@ -468,6 +468,32 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?php %s %s; ?>', $tag, $content);
         }
         return $this->invokeFunc($tag, $content);
+    }
+
+    protected function parseUrlTag($content) {
+        if (empty($content)) {
+            return '';
+        }
+        $first = substr($content, 0, 1);
+        if ($first == '\'' || $first == '"') {
+            return $content;
+        }
+        $url = '';
+        $i = 0;
+        foreach (explode(':$', $content) as $item) {
+            if ($i < 1) {
+                $url = sprintf('\'%s\'', $item);
+                continue;
+            }
+            $i ++;
+            if (strpos($item, ':') === false) {
+                $url .= sprintf('.%s', $this->parseVal('$'.$item));
+                continue;
+            }
+            list($key, $val) = explode(':', $item, 2);
+            $url .= sprintf('.%s.\'%s\'', $this->parseVal('$'.$key), $val);
+        }
+        return $url;
     }
 
     /**
@@ -688,6 +714,9 @@ class ParserCompiler extends CompilerEngine {
             return false;
         }
         $tag = array_pop($this->forTags);
+        if ($tag == 'foreach') {
+            return '<?php endforeach;endif;?>';
+        }
         return '<?php end'.$tag.';?>';
     }
 

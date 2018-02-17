@@ -132,7 +132,7 @@ class ViewFactory extends MagicObject {
         if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
             $this->engine->compile($file, $cacheFile);
         }
-        return new View($this, $cacheFile);
+        return new View($this, $file, $cacheFile);
     }
 
     /**

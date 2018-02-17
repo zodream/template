@@ -46,27 +46,34 @@ class View {
     protected $file;
 
     /**
+     * @var File
+     */
+    protected $sourceFile;
+
+    /**
      * @var ViewFactory
      */
     protected $factory;
     
-    public function __construct($factory, $file = null) {
+    public function __construct($factory, $file = null, $sourceFile = null) {
         $this->factory = $factory;
         if (!empty($file)) {
-            $this->setFile($file);
+            $this->setFile($file, $sourceFile);
         }
     }
 
     /**
      * SET FILE
      * @param File|string $file
+     * @param File $sourceFile
      * @return $this
      */
-    public function setFile($file) {
+    public function setFile($file, $sourceFile = null) {
         if (!$file instanceof File) {
             $file = new File($file);
         }
         $this->file = $file;
+        $this->sourceFile = empty($sourceFile) ? $file : $sourceFile;
         return $this;
     }
 
@@ -99,7 +106,7 @@ class View {
         ob_start();
         extract($this->factory->get(), EXTR_SKIP);
         try {
-            include $this->file->getFullName();
+            include (string)$this->sourceFile;
             /*eval('?>'.$content);*/
         } catch (\Exception $e) {
             $this->handleViewException($e, $obLevel);

@@ -16,12 +16,16 @@ abstract class CompilerEngine implements EngineObject {
      * @var ViewFactory
      */
     protected $factory;
+    /**
+     * @var File
+     */
+    protected $file;
 
     /**
      * 不允许直接打开视图缓存文件
      * @var string
      */
-    const DIE_HEADER = "defined('APP_DIR') or exit();\r\n/** @var \$this \Zodream\Template\View */";
+    const DIE_HEADER = "defined('APP_DIR') or exit();\r\nuse Zodream\Template\View;\r\n/** @var \$this View */";
     // 初始化头部
     protected $headers = [
         self::DIE_HEADER
@@ -48,7 +52,12 @@ abstract class CompilerEngine implements EngineObject {
      * 初始化头部
      */
     protected function initHeaders() {
-        $this->headers = [self::DIE_HEADER];
+        $this->headers = [
+            self::DIE_HEADER
+        ];
+//        if (!empty($this->file)) {
+//            $this->headers[] = sprintf('$this->setFile(\'%s\');', $this->file->getFullName());
+//        }
     }
 
     /**
@@ -67,6 +76,7 @@ abstract class CompilerEngine implements EngineObject {
      * @return bool
      */
     public function compile(File $file, File $cacheFile) {
+        $this->file = $file;
         $content = $this->compileString($file->read());
         return $cacheFile->write($this->compileHeaders().$content) !== false;
     }
