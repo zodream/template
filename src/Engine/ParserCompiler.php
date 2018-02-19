@@ -475,7 +475,7 @@ class ParserCompiler extends CompilerEngine {
 
     protected function parsePage($content) {
         if (strpos($content, ',') === false) {
-            return sprintf('<?= %s->getLink() ?>');
+            return sprintf('<?= %s->getLink() ?>', $content);
         }
         list($model, $options) = explode(',', $content, 2);
         return sprintf('<?= %s->getLink(%s) ?>', $model, $options);
@@ -490,13 +490,14 @@ class ParserCompiler extends CompilerEngine {
             return $content;
         }
         $url = '';
-        $i = 0;
-        foreach (explode(':$', $content) as $item) {
+        $i = -1;
+        $args = explode(':$', $content);
+        foreach ($args as $item) {
+            $i ++;
             if ($i < 1) {
                 $url = sprintf('\'%s\'', $item);
                 continue;
             }
-            $i ++;
             if (strpos($item, ':') === false) {
                 $url .= sprintf('.%s', $this->parseVal('$'.$item));
                 continue;
@@ -575,9 +576,10 @@ class ParserCompiler extends CompilerEngine {
             explode(';', $content) :
             explode(',', $content);
         $length = count($args);
+        $args[0] = $this->parseVal($args[0]);
         if ($length == 1) {
             $this->forTags[] = 'while';
-            return '<?php while('.$content.'):?>';
+            return '<?php while('.$args[0].'):?>';
         }
         if ($length == 2) {
             $this->forTags[] = 'foreach';
