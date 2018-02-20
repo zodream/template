@@ -288,6 +288,12 @@ class ParserCompiler extends CompilerEngine {
         return sprintf('\'%s\'', $val);
     }
 
+    protected function replaceVal($content) {
+        return preg_replace_callback('/\$[A-z0-9_]+(?:\.\w+)+/i', function ($match) {
+            return $this->parseVal($match[0]);
+        }, $content);
+    }
+
     /**
      * 转化值
      * @param $val
@@ -458,7 +464,7 @@ class ParserCompiler extends CompilerEngine {
             return $this->parsePage($content);
         }
         if ($tag == 'elseif' || $tag == 'else if') {
-            return sprintf('<?php elseif(%s):?>', $content);
+            return $this->parseElseIf($content);
         }
         if ($tag == 'url') {
             return sprintf('<?= $this->url(%s) ?>', $this->parseUrlTag($content));
@@ -471,6 +477,10 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?php %s %s; ?>', $tag, $content);
         }
         return $this->invokeFunc($tag, $content);
+    }
+
+    protected function parseElseIf($content) {
+        return sprintf('<?php elseif(%s):?>', $this->replaceVal($content));
     }
 
     protected function parsePage($content) {
@@ -543,8 +553,9 @@ class ParserCompiler extends CompilerEngine {
     protected function parseIf($content) {
         $args = explode(',', $content);
         $length = count($args);
+        $args[0] = $this->replaceVal($args[0]);
         if ($length == 1) {
-            return '<?php if('.$content.'):?>';
+            return '<?php if('.$args[0].'):?>';
         }
         if ($length == 2) {
             return sprintf('<?php if (%s){ echo %s; }?>', $args[0], $args[1]);
@@ -561,7 +572,7 @@ class ParserCompiler extends CompilerEngine {
     protected function parseSwitch($content) {
         $args = explode(',', $content);
         if (count($args) == 1) {
-            return sprintf('<?php switch(%s):?>', $content);
+            return sprintf('<?php switch(%s):?>', $this->replaceVal($content));
         }
         return sprintf('<?php switch(%s): case %s:?>', $args[0], $args[1]);
     }
@@ -576,7 +587,7 @@ class ParserCompiler extends CompilerEngine {
             explode(';', $content) :
             explode(',', $content);
         $length = count($args);
-        $args[0] = $this->parseVal($args[0]);
+        $args[0] = $this->replaceVal($args[0]);
         if ($length == 1) {
             $this->forTags[] = 'while';
             return '<?php while('.$args[0].'):?>';
@@ -694,13 +705,13 @@ class ParserCompiler extends CompilerEngine {
             return $this->parseEndTag(substr($content, 1));
         }
         if ($first == '|') {
-            return '<?php if ('.substr($content, 1).'):?>';
+            return $this->parseIf(substr($content, 1));
         }
         if ($first == '+') {
-            return '<?php elseif ('.substr($content, 1).'):?>';
+            return $this->parseElseIf(substr($content, 1));
         }
         if ($first == '~') {
-            return '<?php for('.substr($content, 1).'):?>';
+            return $this->parseFor(substr($content, 1));
         }
         // 直接输出
         if ($first == '=') {
@@ -742,7 +753,7 @@ class ParserCompiler extends CompilerEngine {
             return '?>';
         }
         if ($tag == 'js' || $tag == 'css') {
-            return sprintf('<<<%s; $this->register%s($%s_%s);?>', strtoupper($tag), ucfirst($tag), $tag, $this->tplHash);
+            return sprintf('%s; $this->register%s($%s_%s);?>', strtoupper($tag), ucfirst($tag), $tag, $this->tplHash);
         }
         if ($tag == 'text') {
             return null;
