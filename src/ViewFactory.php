@@ -128,7 +128,7 @@ class ViewFactory extends MagicObject {
             return new View($this, $file);
         }
         /** IF HAS ENGINE*/
-        $cacheFile = $this->cache->getCacheFile($file->getName());
+        $cacheFile = $this->cache->getCacheFile($file->getFullName());
         if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
             $this->engine->compile($file, $cacheFile);
         }
