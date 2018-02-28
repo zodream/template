@@ -204,9 +204,9 @@ class ParserCompiler extends CompilerEngine {
             return '<?php '.$content.';?>';
         }
         // 转化输出默认值
-        if ($this->hasOrderTag($content, ['$', ',', ['$', '\'', '"']]) > 0) {
-            $args = explode(',', $content, 2);
-            return sprintf('<?=isset(%s) ? %s : %s?>', $args[0], $args[1]);
+        if (preg_match('/^(\$[^\s,]+?),(\d+|\$.+|".+"|\'.+\')$/i', $content, $match)) {
+            $match[1] = $this->parseVal($match[1]);
+            return sprintf('<?=isset(%s) ? %s : %s?>', $match[1], $match[1], $match[2]);
         }
         // 转化输出值
         if (preg_match('/^(\$|this.)[_\w\.-\>\[\]\|\$]+$/i', $content)) {
