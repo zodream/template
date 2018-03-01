@@ -148,7 +148,7 @@ class ParserCompiler extends CompilerEngine {
     public function parse($content) {
         $this->initHeaders();
         $content = preg_replace($this->salePattern, '', $content);
-        $pattern = sprintf('/%s\s*(.+?)\s*%s/s', $this->beginTag, $this->endTag);
+        $pattern = sprintf('/%s[ 　]*(.+?)[ 　]*%s/i', $this->beginTag, $this->endTag);
         return preg_replace_callback($pattern, [$this, 'replaceCallback'], $content);
     }
 
@@ -204,9 +204,9 @@ class ParserCompiler extends CompilerEngine {
             return '<?php '.$content.';?>';
         }
         // 转化输出默认值
-        if (preg_match('/^(\$[^\s,]+?),(\d+|\$.+|".+"|\'.+\')$/i', $content, $match)) {
-            $match[1] = $this->parseVal($match[1]);
-            return sprintf('<?=isset(%s) ? %s : %s?>', $match[1], $match[1], $match[2]);
+        if (preg_match('/^(\$[^\s,]+?),(\d+|\$.+|".+"|\'.+\')$/i', $content, $args)) {
+            $args[1] = $this->parseVal($args[1]);
+            return sprintf('<?=isset(%s) ? %s : %s?>', $args[1], $args[1], $args[2]);
         }
         // 转化输出值
         if (preg_match('/^(\$|this.)[_\w\.-\>\[\]\|\$]+$/i', $content)) {
@@ -771,18 +771,23 @@ class ParserCompiler extends CompilerEngine {
             $this->blockTag = 'php';
             return '<?php ';
         }
+        $args = '';
+        if (strpos($content, ':')) {
+            list($content, $args) = explode(':', $content, 2);
+            $args = rtrim($args, ';').';'.PHP_EOL;
+        }
         if ($content == 'js' || $content == 'script') {
             $this->blockTag = 'js';
-            return sprintf('<?php $js_%s = <<<JS', $this->tplHash);
+            return sprintf('<?php %s$js_%s = <<<JS', $args, $this->tplHash);
         }
         if ($content == 'css' || $content == 'style') {
             $this->blockTag = 'css';
-            return sprintf('<?php $css_%s = <<<CSS', $this->tplHash);
+            return sprintf('<?php %s$css_%s = <<<CSS', $args, $this->tplHash);
         }
         if ($content == 'text') {
             $this->blockTag = 'text';
             return null;
         }
-        return sprintf('<?php %s; ?>', $content);
+        return sprintf('<?php %s:%s; ?>', $content, $args);
     }
 }
