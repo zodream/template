@@ -753,7 +753,7 @@ class ParserCompiler extends CompilerEngine {
             return '?>';
         }
         if ($tag == 'js' || $tag == 'css') {
-            return sprintf('%s; $this->register%s($%s_%s);?>', strtoupper($tag), ucfirst($tag), $tag, $this->tplHash);
+            return sprintf(PHP_EOL.'%s;'.PHP_EOL.' $this->register%s($%s_%s);?>', strtoupper($tag), ucfirst($tag), $tag, $this->tplHash);
         }
         if ($tag == 'text') {
             return null;
