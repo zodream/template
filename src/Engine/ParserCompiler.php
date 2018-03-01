@@ -594,8 +594,7 @@ class ParserCompiler extends CompilerEngine {
         }
         if ($length == 2) {
             $this->forTags[] = 'foreach';
-            return sprintf('<?php if (!empty(%s) && is_array(%s)): foreach(%s as %s):?>',
-                $args[0],
+            return sprintf('<?php if (!empty(%s)): foreach(%s as %s):?>',
                 $args[0],
                 $args[0], $args[1] ?: '$item');
         }
@@ -603,8 +602,7 @@ class ParserCompiler extends CompilerEngine {
         if (in_array($tag, ['<', '>', '='])) {
             list($key, $item) = $this->getForItem($args[1]);
             $this->forTags[] = 'foreach';
-            return sprintf('<?php if (!empty(%s) && is_array(%s)): foreach(%s as %s=>%s): if (!(%s %s)): break; endif;?>',
-                $args[0],
+            return sprintf('<?php if (!empty(%s)): foreach(%s as %s=>%s): if (!(%s %s)): break; endif;?>',
                 $args[0],
                 $args[0], $key, $item, $key,  $args[2]);
         }
@@ -617,8 +615,7 @@ class ParserCompiler extends CompilerEngine {
         }
 
         $this->forTags[] = 'foreach';
-        return sprintf('<?php if (!empty(%s) && is_array(%s)):  $i = 0; foreach(%s as %s): $i ++; if ($i > %s): break; endif;?>',
-            $args[0],
+        return sprintf('<?php if (!empty(%s)):  $i = 0; foreach(%s as %s): $i ++; if ($i > %s): break; endif;?>',
             $args[0],
             $args[0],
             $args[1]  ?: '$item',
