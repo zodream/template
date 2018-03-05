@@ -268,6 +268,11 @@ class ParserCompiler extends CompilerEngine {
         return $content;
     }
 
+    /**
+     * 但值进行转化，不包括通过 . 对数组读取
+     * @param $val
+     * @return string
+     */
     protected function getRealVal($val) {
         if (empty($val)) {
             return 'null';
@@ -442,6 +447,12 @@ class ParserCompiler extends CompilerEngine {
      */
     protected function parseBlockTag($content) {
         list($tag, $content) = explode(':', $content, 2);
+        if ($tag == 'request') {
+            return $this->parseRequest($content);
+        }
+        if (strpos($tag, 'request.') === 0) {
+            return $this->parseRequest($content, substr($tag, 8));
+        }
         if ($tag == 'for') {
             return $this->parseFor($content);
         }
@@ -477,6 +488,16 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?php %s %s; ?>', $tag, $content);
         }
         return $this->invokeFunc($tag, $content);
+    }
+
+    /**
+     * 转化值
+     * @param $key
+     * @param string $tag
+     * @return mixed
+     */
+    protected function parseRequest($key, $tag = 'request') {
+        return call_user_func('Request::'.$tag, $this->getRealVal($key));
     }
 
     protected function parseElseIf($content) {
