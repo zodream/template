@@ -193,7 +193,7 @@ class View {
         if (strpos($name, './') === 0) {
             return $this->file->getDirectory()->getFile($this->factory->fileSuffix($name));
         }
-        if (strpos($name, '../') == 0) {
+        if (strpos($name, '../') === 0) {
             return $this->file->getDirectory()->parent()
                 ->getFile($this->factory->fileSuffix($name));
         }
