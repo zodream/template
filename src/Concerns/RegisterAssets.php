@@ -127,10 +127,12 @@ trait RegisterAssets {
         return $this;
     }
 
-    public function registerCssFile($url, $options = array(), $key = null) {
-        $key = $key ?: $url;
+    public function registerCssFile($urls, $options = array(), $key = null) {
         $options['rel'] = 'stylesheet';
-        $this->currentRegisterAssets['cssFiles'][$key] = Html::link($this->getAssetFile($url), $options);
+        foreach ((array)$urls as $url) {
+            $k = $key ?: $url;
+            $this->currentRegisterAssets['cssFiles'][$k] = Html::link($this->getAssetFile($url), $options);
+        }
         return $this;
     }
 
@@ -140,11 +142,13 @@ trait RegisterAssets {
         return $this;
     }
 
-    public function registerJsFile($url, $options = [], $key = null) {
-        $key = $key ?: $url;
+    public function registerJsFile($urls, $options = [], $key = null) {
         $position = Arr::remove($options, 'position', View::HTML_FOOT);
-        $options['src'] = Url::to($this->getAssetFile($url));
-        $this->currentRegisterAssets['jsFiles'][$position][$key] = Html::script(null, $options);
+        foreach ((array)$urls as $url) {
+            $k = $key ?: $url;
+            $options['src'] = Url::to($this->getAssetFile($url));
+            $this->currentRegisterAssets['jsFiles'][$position][$k] = Html::script(null, $options);
+        }
         return $this;
     }
 
