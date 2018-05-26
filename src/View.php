@@ -190,6 +190,9 @@ class View {
      * @return File| string
      */
     protected function getExtendFile($name) {
+        if (strpos($name, '@') === 0) {
+            return $this->factory->invokeTheme('getFile', [substr($name, 1)]);
+        }
         if (strpos($name, './') === 0) {
             return $this->file->getDirectory()->getFile($this->factory->fileSuffix($name));
         }
@@ -267,6 +270,9 @@ class View {
     public function __call($name, $arguments) {
         if (method_exists($this->factory, $name)) {
             return call_user_func_array([$this->factory, $name], $arguments);
+        }
+        if ($this->factory->canTheme($name)) {
+            return $this->factory->invokeTheme($name, $arguments);
         }
         throw new \BadMethodCallException($name.' METHOD NOT FIND!');
     }

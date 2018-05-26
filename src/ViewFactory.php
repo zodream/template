@@ -13,13 +13,14 @@ use Zodream\Infrastructure\Caching\FileCache;
 use Zodream\Disk\Directory;
 use Zodream\Disk\File;
 use Zodream\Template\Concerns\RegisterAssets;
+use Zodream\Template\Concerns\RegisterTheme;
 use Zodream\Template\Engine\EngineObject;
 use Zodream\Disk\FileException;
 use Zodream\Infrastructure\Base\MagicObject;
 
 class ViewFactory extends MagicObject {
 
-    use ConfigTrait, RegisterAssets;
+    use ConfigTrait, RegisterAssets, RegisterTheme;
 
     protected $configs = [];
 
@@ -35,6 +36,7 @@ class ViewFactory extends MagicObject {
      * @var EngineObject
      */
     protected $engine;
+
 
     /**
      * @var FileCache
@@ -57,6 +59,9 @@ class ViewFactory extends MagicObject {
         if (class_exists($this->configs['driver'])) {
             $this->setEngine($this->configs['driver']);
         }
+        if (isset($this->configs['theme'])) {
+            $this->registerTheme($this->configs['theme']);
+        }
         $this->setAssetsDirectory($this->configs['assets']);
         $this->cache = new FileCache();
         $this->cache->setDirectory($this->configs['cache'])
@@ -74,6 +79,13 @@ class ViewFactory extends MagicObject {
         }
         $this->directory = $directory;
         return $this;
+    }
+
+    /**
+     * @return Directory
+     */
+    public function getDirectory() {
+        return $this->directory;
     }
 
     /**
