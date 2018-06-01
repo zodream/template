@@ -160,7 +160,7 @@ trait RegisterAssets {
     public function start($name) {
         if ($name === 'content') {
             throw new Exception(
-                'The section name "content" is reserved.'
+                __('The section name "content" is reserved.')
             );
         }
         $this->sections[$name] = '';
@@ -174,7 +174,7 @@ trait RegisterAssets {
     public function stop() {
         if (empty($this->sections)) {
             throw new Exception(
-                'You must start a section before you can stop it.'
+                __('You must start a section before you can stop it.')
             );
         }
         end($this->sections);

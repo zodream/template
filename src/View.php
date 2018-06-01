@@ -12,7 +12,7 @@ use Zodream\Disk\FileException;
 use Zodream\Service\Factory;
 use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
-use Zodream\Infrastructure\Traits\ConditionTrait;
+use Zodream\Template\Concerns\ConditionTrait;
 use Zodream\Service\Routing\Url;
 
 /**
@@ -100,7 +100,11 @@ class View {
      */
     protected function renderContent() {
         if (!$this->file->exist()) {
-            throw new FileException($this->file.' NOT EXIST!');
+            throw new FileException(
+                __('{file} not exist!', [
+                    'file' => $this->file
+                ])
+            );
         }
         $obLevel = ob_get_level();
         ob_start();
@@ -274,7 +278,11 @@ class View {
         if ($this->factory->canTheme($name)) {
             return $this->factory->invokeTheme($name, $arguments);
         }
-        throw new \BadMethodCallException($name.' METHOD NOT FIND!');
+        throw new \BadMethodCallException(
+            __(
+                '{name} METHOD NOT FIND!', compact('name')
+            )
+        );
     }
 
     /**
