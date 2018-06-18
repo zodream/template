@@ -105,12 +105,12 @@ class View {
     }
 
     /**
-     * @param array $data
+     * @param array $renderOnlyData
      * @return string
+     * @throws Exception
      * @throws FileException
-     * @throws \Exception
      */
-    protected function renderContent($data = []) {
+    protected function renderContent($renderOnlyData = []) {
         if (!$this->file->exist()) {
             throw new FileException(
                 __('{file} not exist!', [
@@ -120,10 +120,7 @@ class View {
         }
         $obLevel = ob_get_level();
         ob_start();
-        extract($this->factory->get(), EXTR_SKIP);
-        if (!empty($data)) {
-            extract($data, EXTR_SKIP);
-        }
+        extract($this->factory->merge($renderOnlyData), EXTR_SKIP);
         try {
             include (string)$this->sourceFile;
             /*eval('?>'.$content);*/
