@@ -14,6 +14,7 @@ use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
 use Zodream\Template\Concerns\ConditionTrait;
 use Zodream\Service\Routing\Url;
+use Exception;
 
 /**
  * Class View
@@ -78,27 +79,38 @@ class View {
     }
 
     /**
-     * 
+     *
      * @param callable|null $callback
      * @return string
      * @throws \Exception
      */
     public function render(callable $callback = null) {
+        return $this->renderWithData([], $callback);
+    }
+
+    /**
+     * @param array $data
+     * @param callable|null $callback
+     * @return mixed|null|string
+     * @throws \Exception
+     */
+    public function renderWithData($data = [], callable $callback = null) {
         try {
-            $contents = $this->renderContent();
+            $contents = $this->renderContent($data);
             $response = isset($callback) ? call_user_func($callback, $this, $contents) : null;
             return !is_null($response) ? $response : $contents;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw $e;
         }
     }
 
     /**
+     * @param array $data
      * @return string
      * @throws FileException
      * @throws \Exception
      */
-    protected function renderContent() {
+    protected function renderContent($data = []) {
         if (!$this->file->exist()) {
             throw new FileException(
                 __('{file} not exist!', [
@@ -109,6 +121,9 @@ class View {
         $obLevel = ob_get_level();
         ob_start();
         extract($this->factory->get(), EXTR_SKIP);
+        if (!empty($data)) {
+            extract($data, EXTR_SKIP);
+        }
         try {
             include (string)$this->sourceFile;
             /*eval('?>'.$content);*/
@@ -215,9 +230,10 @@ class View {
      * @throws FileException
      * @throws \Exception
      */
-    public function extend($name, $data = array()) {
+    public function extend($name, $data = []) {
         foreach ((array)$name as $item) {
-            echo $this->factory->render($this->getExtendFile($item), $data);
+            echo $this->factory->getView($this->getExtendFile($item))
+                ->renderWithData($data);
         }
         return $this;
     }

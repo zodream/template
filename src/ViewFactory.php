@@ -158,9 +158,19 @@ class ViewFactory extends MagicObject {
      */
     public function render($file, array $data = array(), callable $callback = null) {
         return $this->setAttribute($data)
-            ->moveRegisterAssets()
-            ->make($file)
+            ->getView($file)
             ->render($callback);
+    }
+
+    /**
+     * @param $file
+     * @return View
+     * @throws FileException
+     * @throws \Exception
+     */
+    public function getView($file) {
+        return $this->moveRegisterAssets()
+            ->make($file);
     }
 
 
