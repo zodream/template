@@ -13,7 +13,7 @@ use Zodream\Service\Factory;
 use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
 use Zodream\Template\Concerns\ConditionTrait;
-use Zodream\Service\Routing\Url;
+use Zodream\Infrastructure\Http\URL;
 use Exception;
 
 /**

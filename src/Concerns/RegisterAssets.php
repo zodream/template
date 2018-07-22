@@ -3,7 +3,7 @@ namespace Zodream\Template\Concerns;
 
 use Zodream\Helpers\Arr;
 use Zodream\Infrastructure\Support\Html;
-use Zodream\Service\Routing\Url;
+use Zodream\Infrastructure\Http\URL;
 use Zodream\Template\AssetFile;
 use Zodream\Template\View;
 use Exception;

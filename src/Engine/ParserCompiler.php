@@ -496,8 +496,8 @@ class ParserCompiler extends CompilerEngine {
      * @param string $tag
      * @return mixed
      */
-    protected function parseRequest($key, $tag = 'request') {
-        return call_user_func('Request::'.$tag, $this->getRealVal($key));
+    protected function parseRequest($key, $tag = 'get') {
+        return call_user_func([app('request'), $tag], $this->getRealVal($key));
     }
 
     protected function parseElseIf($content) {

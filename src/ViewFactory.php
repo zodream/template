@@ -46,12 +46,9 @@ class ViewFactory extends MagicObject {
     protected $assetsDirectory;
     
     public function __construct() {
-        if (!defined('APP_MODULE')) {
-            return;
-        }
         $this->loadConfigs([
             'driver' => null,
-            'directory' => 'UserInterface/'.APP_MODULE,
+            'directory' => 'UserInterface/'.app('app.module'),
             'suffix' => '.php',
             'assets' => '/',
             'cache' => 'data/views'
