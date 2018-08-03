@@ -3,7 +3,6 @@ namespace Zodream\Template\Concerns;
 
 use Zodream\Helpers\Arr;
 use Zodream\Infrastructure\Support\Html;
-use Zodream\Infrastructure\Http\URL;
 use Zodream\Template\AssetFile;
 use Zodream\Template\View;
 use Exception;
@@ -56,7 +55,7 @@ trait RegisterAssets {
         if (strpos($file, '@') === 0 && ($ext == 'js' || $ext == 'css')) {
             $file = $ext.'/'. substr($file, 1);
         }
-        return $this->assetsDirectory.$file;
+        return url()->asset($this->assetsDirectory.$file);
     }
 
     /**
@@ -146,7 +145,7 @@ trait RegisterAssets {
         $position = Arr::remove($options, 'position', View::HTML_FOOT);
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;
-            $options['src'] = Url::to($this->getAssetFile($url));
+            $options['src'] = url()->to($this->getAssetFile($url));
             $this->currentRegisterAssets['jsFiles'][$position][$k] = Html::script(null, $options);
         }
         return $this;

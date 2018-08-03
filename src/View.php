@@ -13,7 +13,6 @@ use Zodream\Service\Factory;
 use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
 use Zodream\Template\Concerns\ConditionTrait;
-use Zodream\Infrastructure\Http\URL;
 use Exception;
 
 /**
@@ -188,7 +187,7 @@ class View {
      * @return string|Uri
      */
     public function url($file = null, $extra = null) {
-        return Url::to($file, $extra, true);
+        return url()->to($file, $extra, true);
     }
 
     /**
