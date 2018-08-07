@@ -83,6 +83,9 @@ trait RegisterAssets {
                 $base[$key] = $item;
                 continue;
             }
+            if (!is_array($item) || !is_array($base[$key])) {
+                continue;
+            }
             $base[$key] = $append
                 ? array_merge($base[$key], $item)
                 : array_merge($item, $base[$key]);
