@@ -193,10 +193,20 @@ class View {
     /**
      * 获取资源文件路径
      * @param $file
-     * @return string|Uri
+     * @return string
+     * @throws Exception
      */
     public function asset($file) {
-        return $this->url($this->factory->getAssetFile($file));
+        return $this->url($this->factory->getAssetUri($file));
+    }
+
+    /**
+     * @param $file
+     * @return string|Uri
+     * @throws Exception
+     */
+    public function assetFile($file) {
+        return $this->factory->getAssetFile($file);
     }
 
     /**

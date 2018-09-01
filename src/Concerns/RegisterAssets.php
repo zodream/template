@@ -3,6 +3,7 @@ namespace Zodream\Template\Concerns;
 
 use Zodream\Helpers\Arr;
 use Zodream\Infrastructure\Support\Html;
+use Zodream\Service\Factory;
 use Zodream\Template\AssetFile;
 use Zodream\Template\View;
 use Exception;
@@ -41,9 +42,26 @@ trait RegisterAssets {
     /**
      * GET ASSET FILE
      * @param string $file
-     * @return string
+     * @return AssetFile
+     * @throws Exception
      */
     public function getAssetFile($file) {
+        if (is_file($file)) {
+            return new AssetFile($file);
+        }
+        $ext = pathinfo($file, PATHINFO_EXTENSION);
+        if (strpos($file, '@') === 0 && ($ext == 'js' || $ext == 'css')) {
+            $file = $ext.'/'. substr($file, 1);
+        }
+        return new AssetFile(Factory::public_path()->file($this->assetsDirectory.$file));
+    }
+
+    /**
+     * @param $file
+     * @return string
+     * @throws Exception
+     */
+    public function getAssetUri($file) {
         if (is_file($file)) {
             return (new AssetFile($file))->getUrl();
         }
@@ -133,7 +151,7 @@ trait RegisterAssets {
         $options['rel'] = 'stylesheet';
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;
-            $this->currentRegisterAssets['cssFiles'][$k] = Html::link($this->getAssetFile($url), $options);
+            $this->currentRegisterAssets['cssFiles'][$k] = Html::link($this->getAssetUri($url), $options);
         }
         return $this;
     }
@@ -148,7 +166,7 @@ trait RegisterAssets {
         $position = Arr::remove($options, 'position', View::HTML_FOOT);
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;
-            $options['src'] = url()->to($this->getAssetFile($url));
+            $options['src'] = url()->to($this->getAssetUri($url));
             $this->currentRegisterAssets['jsFiles'][$position][$k] = Html::script(null, $options);
         }
         return $this;
