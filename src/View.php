@@ -25,6 +25,8 @@ use Exception;
  * @method ViewFactory set($key, $value = null)
  * @method string header()
  * @method string footer()
+ * @method string renderFooter()
+ * @method string renderHeader()
  * @method ViewFactory start($name)
  * @method ViewFactory stop()
  * @method ViewFactory section($name, $default = null)

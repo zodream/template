@@ -215,32 +215,30 @@ trait RegisterAssets {
 
     public function header() {
         $this->moveRegisterAssets(false);
-        $lines = [];
-        if (!empty($this->registerAssets['metaTags'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['metaTags']);
-        }
-
-        if (!empty($this->registerAssets['linkTags'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['linkTags']);
-        }
-        if (!empty($this->registerAssets['cssFiles'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['cssFiles']);
-        }
-        if (!empty($this->registerAssets['css'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['css']);
-        }
-        if (!empty($this->registerAssets['jsFiles'][View::HTML_HEAD])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['jsFiles'][View::HTML_HEAD]);
-        }
-        if (!empty($this->registerAssets['js'][View::HTML_HEAD])) {
-            $lines[] = Html::script(implode(PHP_EOL, $this->registerAssets['js'][View::HTML_HEAD]), ['type' => 'text/javascript']);
-        }
-
-        return empty($lines) ? '' : implode(PHP_EOL, $lines);
+        return $this->renderHeader();
     }
 
     public function footer() {
         $this->moveRegisterAssets(false);
+        return $this->renderFooter();
+    }
+
+    protected function clearAssets() {
+        $this->registerAssets = $this->currentRegisterAssets = [
+            'metaTags' => [],
+            'linkTags' => [],
+            'js' => [],
+            'jsFiles' => [],
+            'css' => [],
+            'cssFiles' => []
+        ];
+        $this->sections = [];
+    }
+
+    /**
+     * @return string
+     */
+    public function renderFooter(): string {
         $lines = [];
         if (!empty($this->registerAssets['jsFiles'][View::HTML_FOOT])) {
             $lines[] = implode(PHP_EOL, $this->registerAssets['jsFiles'][View::HTML_FOOT]);
@@ -259,15 +257,30 @@ trait RegisterAssets {
         return empty($lines) ? '' : implode(PHP_EOL, $lines);
     }
 
-    protected function clearAssets() {
-        $this->registerAssets = $this->currentRegisterAssets = [
-            'metaTags' => [],
-            'linkTags' => [],
-            'js' => [],
-            'jsFiles' => [],
-            'css' => [],
-            'cssFiles' => []
-        ];
-        $this->sections = [];
+    /**
+     * @return string
+     */
+    public function renderHeader(): string {
+        $lines = [];
+        if (!empty($this->registerAssets['metaTags'])) {
+            $lines[] = implode(PHP_EOL, $this->registerAssets['metaTags']);
+        }
+        if (!empty($this->registerAssets['linkTags'])) {
+            $lines[] = implode(PHP_EOL, $this->registerAssets['linkTags']);
+        }
+        if (!empty($this->registerAssets['cssFiles'])) {
+            $lines[] = implode(PHP_EOL, $this->registerAssets['cssFiles']);
+        }
+        if (!empty($this->registerAssets['css'])) {
+            $lines[] = implode(PHP_EOL, $this->registerAssets['css']);
+        }
+        if (!empty($this->registerAssets['jsFiles'][View::HTML_HEAD])) {
+            $lines[] = implode(PHP_EOL, $this->registerAssets['jsFiles'][View::HTML_HEAD]);
+        }
+        if (!empty($this->registerAssets['js'][View::HTML_HEAD])) {
+            $lines[] = Html::script(implode(PHP_EOL, $this->registerAssets['js'][View::HTML_HEAD]), ['type' => 'text/javascript']);
+        }
+
+        return empty($lines) ? '' : implode(PHP_EOL, $lines);
     }
 }
