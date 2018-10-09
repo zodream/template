@@ -50,7 +50,7 @@ class ViewFactory extends MagicObject {
             'driver' => null,
             'directory' => 'UserInterface/'.app('app.module'),
             'suffix' => '.php',
-            'assets' => '/',
+            'assets' => 'assets',
             'cache' => 'data/views'
         ]);
         if (class_exists($this->configs['driver'])) {
