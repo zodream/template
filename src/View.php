@@ -269,7 +269,7 @@ class View {
     }
 
     public function registerCssFile($url, $options = array(), $key = null) {
-            $this->factory->registerCssFile($url, $options, $key);
+        $this->factory->registerCssFile($url, $options, $key);
         return $this;
     }
 
