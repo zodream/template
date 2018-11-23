@@ -183,10 +183,20 @@ class View {
     }
 
     /**
+     * 转义
+     * @param string $html
+     * @return string
+     */
+    public function text($html) {
+        return htmlspecialchars($html);
+    }
+
+    /**
      * GET COMPLETE URL
      * @param null $file
      * @param null $extra
      * @return string|Uri
+     * @throws Exception
      */
     public function url($file = null, $extra = null) {
         return url()->to($file, $extra, true);
