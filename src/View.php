@@ -195,11 +195,15 @@ class View {
      * GET COMPLETE URL
      * @param null $file
      * @param null $extra
+     * @param bool $rewrite
      * @return string|Uri
      * @throws Exception
      */
-    public function url($file = null, $extra = null) {
-        return url()->to($file, $extra, true);
+    public function url($file = null, $extra = null, $rewrite = true) {
+        if ($extra === false && $rewrite === true) {
+            list($extra, $rewrite) = [null, $extra];
+        }
+        return url()->to($file, $extra, true, $rewrite);
     }
 
     /**
