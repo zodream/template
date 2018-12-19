@@ -28,7 +28,25 @@ trait RegisterAssets {
         'cssFiles' => []
     ];
 
+    protected $assetsMaps = [];
+
     protected $sections = [];
+
+
+    public function registerAssetsMap($files, $url = null) {
+        if (!is_array($files)) {
+            $files = [(string)$files => $url];
+        }
+        foreach ($files as $key => $item) {
+            $this->assetsMaps[$key] = empty($item) ? $key : $item;
+        }
+        return $this;
+    }
+
+    public function getAssetFromMaps($file) {
+        return is_string($file) && isset($this->assetsMaps[$file])
+            ? $this->assetsMaps[$file] : $file;
+    }
 
     public function setAssetsDirectory($directory) {
         $this->assetsDirectory = '/'.trim($directory, '/');
@@ -37,7 +55,6 @@ trait RegisterAssets {
         }
         return $this;
     }
-
 
     /**
      * GET ASSET FILE
@@ -62,6 +79,7 @@ trait RegisterAssets {
      * @throws Exception
      */
     public function getAssetUri($file) {
+        $file = $this->getAssetFromMaps($file);
         if (is_file($file)) {
             return (new AssetFile($file))->getUrl();
         }

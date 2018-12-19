@@ -50,7 +50,7 @@ class ViewFactory extends MagicObject {
             'driver' => null,
             'directory' => 'UserInterface/'.app('app.module'),
             'suffix' => '.php',
-            'assets' => 'assets',
+            'asset_directory' => 'assets',
             'cache' => 'data/views'
         ]);
         if (class_exists($this->configs['driver'])) {
@@ -59,7 +59,7 @@ class ViewFactory extends MagicObject {
         if (isset($this->configs['theme'])) {
             $this->registerTheme($this->configs['theme']);
         }
-        $this->setAssetsDirectory($this->configs['assets']);
+        $this->setAssetsDirectory($this->configs['asset_directory']);
         $this->cache = new FileCache();
         $this->cache->setDirectory($this->configs['cache'])
             ->setConfigs([
@@ -67,6 +67,11 @@ class ViewFactory extends MagicObject {
             ]);
         $this->setDirectory($this->configs['directory']);
         $this->set('__zd', $this);
+        if (!app()->isDebug()
+            && isset($this->configs['assets'])
+            && is_array($this->configs['assets'])) {
+            $this->registerAssetsMap($this->configs['assets']);
+        }
     }
 
     
