@@ -235,7 +235,8 @@ class View {
             return $this->factory->invokeTheme('getFile', [substr($name, 1)]);
         }
         if (strpos($name, './') === 0) {
-            return $this->file->getDirectory()->getFile($this->factory->fileSuffix($name));
+            return $this->file->getDirectory()
+                ->getFile($this->factory->fileSuffix(substr($name, 2)));
         }
         if (strpos($name, '../') === 0) {
             return $this->file->getDirectory()->parent()

@@ -132,7 +132,7 @@ class ViewFactory extends MagicObject {
      * @throws \Exception
      */
     public function make($file) {
-        if (is_file($file)) {
+        if (!$file instanceof File && is_file($file)) {
             $file = new File($file);
         }
         if (!$file instanceof File) {
