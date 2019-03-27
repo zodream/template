@@ -299,6 +299,10 @@ class View {
     }
     
     public function __set($name, $value) {
+        if ($name === 'layout') {
+            $this->factory->setLayout($value);
+            return;
+        }
         $this->factory->set($name, $value);
     }
 

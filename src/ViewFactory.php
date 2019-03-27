@@ -37,6 +37,7 @@ class ViewFactory extends MagicObject {
      */
     protected $engine;
 
+    protected $layout = false;
 
     /**
      * @var FileCache
@@ -88,6 +89,15 @@ class ViewFactory extends MagicObject {
      */
     public function getDirectory() {
         return $this->directory;
+    }
+
+    /**
+     * @param string $layout
+     * @return ViewFactory
+     */
+    public function setLayout($layout) {
+        $this->layout = $layout;
+        return $this;
     }
 
     /**
@@ -162,9 +172,28 @@ class ViewFactory extends MagicObject {
      * @throws \Exception
      */
     public function render($file, array $data = array(), callable $callback = null) {
-        return $this->setAttribute($data)
-            ->getView($file)
-            ->render($callback);
+        $content = $this->setAttribute($data)
+            ->getView($file)->render($callback);
+        $layout = $this->findLayoutFile();
+        if (empty($layout)) {
+            return $content;
+        }
+        return $this->getView($layout)
+            ->renderWithData(['content' => $content]);
+    }
+
+    public function findLayoutFile() {
+        if (empty($this->layout)) {
+            return false;
+        }
+        if ($this->layout instanceof File || is_file($this->layout)) {
+            return $this->layout;
+        }
+        $code = substr($this->layout, 0, 1);
+        if ($code == '/') {
+            return $this->layout;
+        }
+        return 'layouts/'.$this->layout;
     }
 
     /**

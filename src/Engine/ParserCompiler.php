@@ -280,14 +280,17 @@ class ParserCompiler extends CompilerEngine {
         if (is_numeric($val)) {
             return $val;
         }
-        if ($val == 'true' || $val == 'false') {
+        if ($val === 'true' || $val === 'false') {
             return $val;
         }
         $first = substr($val, 0, 1);
-        if ($first == '$' || $first == '"') {
+        if ($first === '$') {
+            return $this->parseVal($val);
+        }
+        if ($first === '"') {
             return $val;
         }
-        if ($first == '\'') {
+        if ($first === '\'') {
             $val = trim('\'');
         }
         return sprintf('\'%s\'', $val);
@@ -347,6 +350,11 @@ class ParserCompiler extends CompilerEngine {
     protected function makeVar($val) {
         if (strrpos($val, '.') === false) {
             return $val;
+        }
+        if (preg_match('/(.+?)\[(.+)\](.*)/', $val, $match)) {
+            return sprintf('%s[%s]%s', $this->makeVar($match[1]),
+                $this->makeVar($match[2]),
+                empty($match[2]) ? '' : $this->makeVar($match[3]));
         }
         $t = explode('.', $val);
         $p = array_shift($t);
@@ -447,44 +455,48 @@ class ParserCompiler extends CompilerEngine {
      */
     protected function parseBlockTag($content) {
         list($tag, $content) = explode(':', $content, 2);
-        if ($tag == 'request') {
+        if ($tag === 'request') {
             return $this->parseRequest($content);
         }
         if (strpos($tag, 'request.') === 0) {
             return $this->parseRequest($content, substr($tag, 8));
         }
-        if ($tag == 'for') {
+        if ($tag === 'for') {
             return $this->parseFor($content);
         }
-        if ($tag == 'switch') {
+        if ($tag === 'switch') {
             return $this->parseSwitch($content);
         }
-        if ($tag == 'case') {
+        if ($tag === 'case') {
             sprintf('<?php case %s:?>', $content);
         }
-        if ($tag == 'default') {
+        if ($tag === 'default') {
             sprintf('<?php default:?>', $content);
         }
-        if ($tag == 'extend') {
+        if ($tag === 'extend') {
             return $this->parseExtend($content);
         }
-        if ($tag == 'if') {
+        if ($tag === 'if') {
             return $this->parseIf($content);
         }
-        if ($tag == 'page') {
+        if ($tag === 'page') {
             return $this->parsePage($content);
         }
-        if ($tag == 'elseif' || $tag == 'else if') {
+        if ($tag === 'elseif' || $tag === 'else if') {
             return $this->parseElseIf($content);
         }
-        if ($tag == 'url') {
+        if ($tag === 'url') {
             return sprintf('<?= $this->url(%s) ?>', $this->parseUrlTag($content));
         }
-        if ($tag == 'use') {
+        if ($tag === 'layout') {
+            $this->addHeader(sprintf('$this->layout = %s;', $this->getRealVal($content)));
+            return null;
+        }
+        if ($tag === 'use') {
             $this->addHeader(sprintf('use \\%s;', trim($content, '\\')));
             return null;
         }
-        if ($tag == 'break' || $tag == 'continue') {
+        if ($tag === 'break' || $tag == 'continue') {
             return sprintf('<?php %s %s; ?>', $tag, $content);
         }
         return $this->invokeFunc($tag, $content);
@@ -712,28 +724,44 @@ class ParserCompiler extends CompilerEngine {
      */
     protected function parseFirstTag($content) {
         $first = substr($content, 0, 1);
-        if ($first == '#') {
+        if ($first === '#') {
             // 返回原句
             return sprintf('%s%s%s', $this->beginTag, substr($content, 1), $this->endTag);
         }
-        if ($first == '>') {
+        if ($first === '>') {
             return $this->parseBlock(substr($content, 1));
         }
-        if ($first == '/') {
+        if ($first === '/') {
             return $this->parseEndTag(substr($content, 1));
         }
-        if ($first == '|') {
+        if ($first === '|') {
             return $this->parseIf(substr($content, 1));
         }
-        if ($first == '+') {
+        if ($first === '+') {
             return $this->parseElseIf(substr($content, 1));
         }
-        if ($first == '~') {
+        if ($first === '~') {
             return $this->parseFor(substr($content, 1));
         }
         // 直接输出
-        if ($first == '=') {
+        if ($first === '=') {
             return '<?='.substr($content, 1).'?>';
+        }
+        if ($first === '@') {
+            //
+            return $this->parseScriptRegister($content);
+        }
+        return false;
+    }
+
+    protected function parseScriptRegister($content) {
+        if (preg_match('/^@.+\.js$/', $content, $match)) {
+            $this->addHeader(sprintf('$this->registerJsFile(\'%s\');', $content));
+            return null;
+        }
+        if (preg_match('/^@.+\.css$/', $content, $match)) {
+            $this->addHeader(sprintf('$this->registerCssFile(\'%s\');', $content));
+            return null;
         }
         return false;
     }

@@ -55,9 +55,9 @@ abstract class CompilerEngine implements EngineObject {
         $this->headers = [
             self::DIE_HEADER
         ];
-//        if (!empty($this->file)) {
-//            $this->headers[] = sprintf('$this->setFile(\'%s\');', $this->file->getFullName());
-//        }
+        if (!empty($this->file)) {
+            $this->headers[] = sprintf('$this->setFile(\'%s\');', $this->file->getFullName());
+        }
     }
 
     /**
