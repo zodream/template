@@ -121,6 +121,13 @@ class ParserCompiler extends CompilerEngine {
         if (!$this->hasFunc($tag)) {
             return false;
         }
+        if (preg_match_all('/(\w+?)=((\[.+?])|(".+?")|(\'.+?\')|(\S+))/', $args, $matches, PREG_SET_ORDER)) {
+            $args = sprintf('[%s]', implode(',', array_map(function ($item) {
+                return sprintf('\'%s\' => %s', $item[1],
+                    in_array(substr($item[2], 0, 1), ['[', '$', '"', '\'']) ? $item[2]
+                        : sprintf('\'%s\'', $item[2]));
+            }, $matches)));
+        }
         $func = $this->funcList[$tag];
         if (is_string($func)) {
             return $this->setValueToFunc($func, $args);
