@@ -127,6 +127,8 @@ class ParserCompiler extends CompilerEngine {
                     in_array(substr($item[2], 0, 1), ['[', '$', '"', '\'']) ? $item[2]
                         : sprintf('\'%s\'', $item[2]));
             }, $matches)));
+        } elseif (!preg_match('/^(([A-Z_]+)|(\$_?\w+))$/', $args, $match)) {
+            $args = sprintf('\'%s\'', $args);
         }
         $func = $this->funcList[$tag];
         if (is_string($func)) {
