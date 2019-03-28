@@ -79,6 +79,8 @@ class ParserCompiler extends CompilerEngine {
         'footer' => '$this->footer',
     ];
 
+    protected $blockTags = [];
+
     /**
      * 设置提取标签
      * @param $begin
@@ -95,10 +97,14 @@ class ParserCompiler extends CompilerEngine {
      * 注册方法
      * @param $tag
      * @param $func
+     * @param bool $isBlock
      * @return $this
      */
-    public function registerFunc($tag, $func = null) {
+    public function registerFunc($tag, $func = null, $isBlock = false) {
         $this->funcList[$tag] = empty($func) ? $tag : $func;
+        if ($isBlock) {
+            $this->blockTags[] = $tag;
+        }
         return $this;
     }
 
@@ -784,6 +790,16 @@ class ParserCompiler extends CompilerEngine {
         }
         if ($content == '*' || $content == 'switch') {
             return '<?php endswitch ?>';
+        }
+        if (!in_array($content, $this->blockTags)) {
+            return false;
+        }
+        $func = $this->funcList[$content];
+        if (is_string($func)) {
+            return sprintf('<?php %s();?>', $func);
+        }
+        if (is_callable($func)) {
+            return call_user_func($func);
         }
         return false;
     }
