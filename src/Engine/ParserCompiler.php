@@ -133,7 +133,7 @@ class ParserCompiler extends CompilerEngine {
                     in_array(substr($item[2], 0, 1), ['[', '$', '"', '\'']) ? $item[2]
                         : sprintf('\'%s\'', $item[2]));
             }, $matches)));
-        } elseif (!preg_match('/^(([A-Z_]+)|(\$_?\w+))$/', $args, $match)) {
+        } elseif ($args !== '' && !preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+")|(\$_?\w+))$/', $args, $match)) {
             $args = sprintf('\'%s\'', $args);
         }
         $func = $this->funcList[$tag];
@@ -514,6 +514,10 @@ class ParserCompiler extends CompilerEngine {
         if ($tag === 'break' || $tag == 'continue') {
             return sprintf('<?php %s %s; ?>', $tag, $content);
         }
+        if (strpos($tag, 'this.') === 0) {
+            // 解析this. => $this->
+            return sprintf('<?=$this->%s(%s)?>', substr($tag, 5), $this->getRealVal($content));
+        }
         return $this->invokeFunc($tag, $content);
     }
 
@@ -796,10 +800,10 @@ class ParserCompiler extends CompilerEngine {
         }
         $func = $this->funcList[$content];
         if (is_string($func)) {
-            return sprintf('<?php %s();?>', $func);
+            return sprintf('<?php %s(-1);?>', $func);
         }
         if (is_callable($func)) {
-            return call_user_func($func);
+            return call_user_func($func, -1);
         }
         return false;
     }

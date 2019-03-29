@@ -43,7 +43,7 @@ abstract class CompilerEngine implements EngineObject {
      * @param $lines
      * @return $this
      */
-    protected function addHeader($lines) {
+    public function addHeader($lines) {
         $this->headers = array_merge($this->headers, (array)$lines);
         return $this;
     }
