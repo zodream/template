@@ -133,8 +133,11 @@ class ParserCompiler extends CompilerEngine {
                     in_array(substr($item[2], 0, 1), ['[', '$', '"', '\'']) ? $item[2]
                         : sprintf('\'%s\'', $item[2]));
             }, $matches)));
-        } elseif ($args !== '' && !preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+")|(\$_?\w+))$/', $args, $match)) {
+        } elseif ($args === '' || preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+"))$/', $args, $match)) {
+        } elseif (!preg_match('/(\$_?\w+.*)/', $args, $match)) {
             $args = sprintf('\'%s\'', $args);
+        } else {
+            $args = $this->getRealVal($args);
         }
         $func = $this->funcList[$tag];
         if (is_string($func)) {
