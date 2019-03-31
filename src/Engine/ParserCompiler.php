@@ -137,7 +137,7 @@ class ParserCompiler extends CompilerEngine {
         } elseif (!preg_match('/(\$_?\w+.*)/', $args, $match)) {
             $args = sprintf('\'%s\'', $args);
         } else {
-            $args = $this->getRealVal($args);
+            $args = $this->replaceVal($args);
         }
         $func = $this->funcList[$tag];
         if (is_string($func)) {
