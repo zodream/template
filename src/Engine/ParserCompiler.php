@@ -129,9 +129,16 @@ class ParserCompiler extends CompilerEngine {
         }
         if (preg_match_all('/(\w+?)=((\[.+?])|(".+?")|(\'.+?\')|(\S+))/', $args, $matches, PREG_SET_ORDER)) {
             $args = sprintf('[%s]', implode(',', array_map(function ($item) {
-                return sprintf('\'%s\' => %s', $item[1],
-                    in_array(substr($item[2], 0, 1), ['[', '$', '"', '\'']) ? $item[2]
-                        : sprintf('\'%s\'', $item[2]));
+                $first = substr($item[2], 0, 1);
+                $value = $item[2];
+                if (in_array($first, ['[', '"', '\''])) {
+                } elseif ($first === '$') {
+                    $value = $this->getRealVal($item[2]);
+                } elseif (is_numeric($value)) {
+                } else {
+                    $value = sprintf('\'%s\'', $item[2]);
+                }
+                return sprintf('\'%s\' => %s', $item[1], $value);
             }, $matches)));
         } elseif ($args === '' || preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+"))$/', $args, $match)) {
         } elseif (!preg_match('/(\$_?\w+.*)/', $args, $match)) {
