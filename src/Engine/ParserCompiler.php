@@ -141,10 +141,12 @@ class ParserCompiler extends CompilerEngine {
                 return sprintf('\'%s\' => %s', $item[1], $value);
             }, $matches)));
         } elseif ($args === '' || preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+"))$/', $args, $match)) {
-        } elseif (!preg_match('/(\$_?\w+.*)/', $args, $match)) {
-            $args = sprintf('\'%s\'', $args);
-        } else {
+        } elseif (preg_match('/(\$_?\w+.*)/', $args, $match)) {
             $args = $this->replaceVal($args);
+        } else {
+            $args = implode(',', array_map(function ($item) {
+                return is_numeric($item) ? $item : sprintf('\'%s\'', $item);
+            }, explode(',', $args)));
         }
         $func = $this->funcList[$tag];
         if (is_string($func)) {
