@@ -184,7 +184,7 @@ trait RegisterAssets {
         $position = Arr::remove($options, 'position', View::HTML_FOOT);
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;
-            $options['src'] = url()->to($this->getAssetUri($url));
+            $options['src'] = $this->getAssetUri($url);
             $this->currentRegisterAssets['jsFiles'][$position][$k] = Html::script(null, $options);
         }
         return $this;
