@@ -148,7 +148,10 @@ class ParserCompiler extends CompilerEngine {
                 return is_numeric($item) ? $item : sprintf('\'%s\'', $item);
             }, explode(',', $args)));
         }
-        $func = $this->funcList[$tag];
+        return $this->invokeFuncParse($this->funcList[$tag], $args);
+    }
+
+    protected function invokeFuncParse($func, $args) {
         if (is_string($func)) {
             return $this->setValueToFunc($func, $args);
         }
@@ -513,7 +516,7 @@ class ParserCompiler extends CompilerEngine {
             return $this->parseElseIf($content);
         }
         if ($tag === 'url') {
-            return sprintf('<?= $this->url(%s) ?>', $this->parseUrlTag($content));
+            return $this->parseUrl($content);
         }
         if ($tag === 'layout') {
             $this->addHeader(sprintf('$this->layout = %s;', $this->getRealVal($content)));
@@ -533,11 +536,20 @@ class ParserCompiler extends CompilerEngine {
         return $this->invokeFunc($tag, $content);
     }
 
+    protected function parseUrl($content) {
+        $func = '<?= $this->url(%s) ?>';
+        if ($this->hasFunc('url')) {
+            $func = $this->funcList['url'];
+        }
+        return $this->invokeFuncParse($func, $this->parseUrlTag($content));
+    }
+
     /**
      * 转化值
      * @param $key
      * @param string $tag
      * @return mixed
+     * @throws \Exception
      */
     protected function parseRequest($key, $tag = 'get') {
         return call_user_func([app('request'), $tag], $this->getRealVal($key));
