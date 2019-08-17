@@ -314,16 +314,24 @@ class ParserCompiler extends CompilerEngine {
             return $val;
         }
         $first = substr($val, 0, 1);
-        if ($first === '$') {
-            return $this->parseVal($val);
-        }
         if ($first === '"') {
             return $val;
         }
         if ($first === '\'') {
             $val = trim('\'');
         }
+        if (strpos($val, ',') > 0) {
+            return $this->parseMultiVal(explode(',', $val));
+        }
+        if ($first === '$') {
+            return $this->parseVal($val);
+        }
+
         return sprintf('\'%s\'', $val);
+    }
+
+    protected function parseMultiVal(array $vals) {
+        return implode(',', array_map([$this, 'getRealVal'], $vals));
     }
 
     protected function replaceVal($content) {
@@ -482,6 +490,7 @@ class ParserCompiler extends CompilerEngine {
      * 转化语句块 if for switch
      * @param $content
      * @return bool|string
+     * @throws \Exception
      */
     protected function parseBlockTag($content) {
         list($tag, $content) = explode(':', $content, 2);

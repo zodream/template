@@ -9,6 +9,7 @@ namespace Zodream\Template;
  */
 use Zodream\Disk\File;
 use Zodream\Disk\FileException;
+use Zodream\Helpers\Str;
 use Zodream\Service\Factory;
 use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
@@ -183,12 +184,17 @@ class View {
     }
 
     /**
-     * 转义
+     * 转义并截取长度
      * @param string $html
+     * @param int $length
      * @return string
      */
-    public function text($html) {
-        return htmlspecialchars($html);
+    public function text($html, $length = 0) {
+        $text = htmlspecialchars($html);
+        if ($length > 0) {
+            return Str::substr($text, 0, $length, true);
+        }
+        return $text;
     }
 
     /**
