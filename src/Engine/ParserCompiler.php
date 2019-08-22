@@ -258,7 +258,7 @@ class ParserCompiler extends CompilerEngine {
 
     protected function arrayToLink(array $args, $format) {
         return implode('', array_map(function($item) use ($format) {
-            return sprintf($format, $item);
+            return sprintf($format, $this->getRealVal($item));
         }, $args));
     }
 
@@ -275,12 +275,12 @@ class ParserCompiler extends CompilerEngine {
         $files = explode(',', $match[3]);
         if ($match[1] == 'link' || $match[1] == 'css') {
             $this->addHeader(sprintf('$this%s;',
-                $this->arrayToLink($files, '->registerCssFile(\'%s\')')));
+                $this->arrayToLink($files, '->registerCssFile(%s)')));
             return null;
         }
         if ($match[1] == 'js' || $match[1] == 'script') {
             $this->addHeader(sprintf('$this%s;',
-                $this->arrayToLink($files, '->registerJsFile(\'%s\')')));
+                $this->arrayToLink($files, '->registerJsFile(%s)')));
             return null;
         }
         $content = '';
