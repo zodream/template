@@ -15,6 +15,7 @@ use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
 use Zodream\Template\Concerns\ConditionTrait;
 use Exception;
+use Zodream\Template\Events\ViewRendered;
 
 /**
  * Class View
@@ -81,6 +82,20 @@ class View {
     }
 
     /**
+     * @return File
+     */
+    public function getFile() {
+        return $this->file;
+    }
+
+    /**
+     * @return File
+     */
+    public function getSourceFile() {
+        return $this->sourceFile;
+    }
+
+    /**
      *
      * @param callable|null $callback
      * @return string
@@ -113,18 +128,31 @@ class View {
      * @throws FileException
      */
     protected function renderContent($renderOnlyData = []) {
-        if (!$this->file->exist()) {
+        if (!$this->sourceFile->exist()) {
             throw new FileException(
                 __('{file} not exist!', [
-                    'file' => $this->file
+                    'file' => $this->sourceFile
                 ])
             );
         }
+        $start = Time::millisecond();
+        $result = $this->renderFile((string)$this->sourceFile, $this->factory->merge($renderOnlyData));
+        event(new ViewRendered($this->file, $this, Time::elapsedTime($start)));
+        return $result;
+    }
+
+    /**
+     * @param string $renderViewFile
+     * @param array $renderViewData
+     * @return string
+     * @throws Exception
+     */
+    protected function renderFile($renderViewFile, array $renderViewData) {
         $obLevel = ob_get_level();
         ob_start();
-        extract($this->factory->merge($renderOnlyData), EXTR_SKIP);
+        extract($renderViewData, EXTR_SKIP);
         try {
-            include (string)$this->sourceFile;
+            include $renderViewFile;
             /*eval('?>'.$content);*/
         } catch (\Exception $e) {
             $this->handleViewException($e, $obLevel);

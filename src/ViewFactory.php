@@ -7,6 +7,7 @@ namespace Zodream\Template;
  * Date: 2016/8/3
  * Time: 9:48
  */
+use Zodream\Helpers\Time;
 use Zodream\Infrastructure\Traits\ConfigTrait;
 use Zodream\Service\Factory;
 use Zodream\Infrastructure\Caching\FileCache;
@@ -17,6 +18,7 @@ use Zodream\Template\Concerns\RegisterTheme;
 use Zodream\Template\Engine\EngineObject;
 use Zodream\Disk\FileException;
 use Zodream\Infrastructure\Base\MagicObject;
+use Zodream\Template\Events\ViewCompiled;
 
 class ViewFactory extends MagicObject {
 
@@ -157,7 +159,9 @@ class ViewFactory extends MagicObject {
         /** IF HAS ENGINE*/
         $cacheFile = $this->cache->getCacheFile($file->getFullName());
         if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
+            $start = Time::millisecond();
             $this->engine->compile($file, $cacheFile);
+            event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));
         }
         return new View($this, $file, $cacheFile);
     }
