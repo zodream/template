@@ -165,6 +165,13 @@ trait RegisterAssets {
         return $this;
     }
 
+    /**
+     * @param $urls
+     * @param array $options
+     * @param null $key
+     * @return static
+     * @throws Exception
+     */
     public function registerCssFile($urls, $options = array(), $key = null) {
         $options['rel'] = 'stylesheet';
         foreach ((array)$urls as $url) {
