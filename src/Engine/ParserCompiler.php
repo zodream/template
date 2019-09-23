@@ -584,6 +584,9 @@ class ParserCompiler extends CompilerEngine {
         if ($first == '\'' || $first == '"') {
             return $content;
         }
+        if ($first === '$') {
+            return $this->makeVar($content);
+        }
         $url = '';
         $i = -1;
         $args = explode(':$', $content);
