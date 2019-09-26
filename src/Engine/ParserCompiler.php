@@ -127,6 +127,10 @@ class ParserCompiler extends CompilerEngine {
         if (!$this->hasFunc($tag)) {
             return false;
         }
+        return $this->invokeFuncParse($this->funcList[$tag], $this->parseFuncParameters($args));
+    }
+
+    public function parseFuncParameters($args) {
         if (preg_match_all('/(\w+?)=((\[.+?])|(".+?")|(\'.+?\')|(\S+))/', $args, $matches, PREG_SET_ORDER)) {
             $args = sprintf('[%s]', implode(',', array_map(function ($item) {
                 $first = substr($item[2], 0, 1);
@@ -140,15 +144,15 @@ class ParserCompiler extends CompilerEngine {
                 }
                 return sprintf('\'%s\' => %s', $item[1], $value);
             }, $matches)));
-        } elseif ($args === '' || preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+"))$/', $args, $match)) {
-        } elseif (preg_match('/(\$_?\w+.*)/', $args, $match)) {
-            $args = $this->replaceVal($args);
+        } elseif ($args === ''
+            ||
+            preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+"))$/', $args, $match)) {
         } else {
             $args = implode(',', array_map(function ($item) {
-                return is_numeric($item) ? $item : sprintf('\'%s\'', $item);
+                return $this->getRealVal($item);
             }, explode(',', $args)));
         }
-        return $this->invokeFuncParse($this->funcList[$tag], $args);
+        return $args;
     }
 
     protected function invokeFuncParse($func, $args) {
@@ -163,7 +167,7 @@ class ParserCompiler extends CompilerEngine {
 
     protected function setValueToFunc($func, $args) {
         if (strpos($func, '%') === false) {
-            return sprintf('<?=%s(%s)?>', $func, $args);
+            return $this->echo('%s(%s)', $func, $args);
         }
         if (substr_count($func, '%') == 1) {
             return sprintf($func, $args);
@@ -231,7 +235,7 @@ class ParserCompiler extends CompilerEngine {
         }
         // 转化设置变量
         if ($this->hasOrderTag($content, ['$', '='])) {
-            return '<?php '.$content.';?>';
+            return '<?php '.$this->parsePhp($content).';?>';
         }
         // 转化输出默认值
         if (preg_match('/^(\$[^\s,]+?),(\d+|\$.+|".+"|\'.+\')$/i', $content, $args)) {
@@ -475,7 +479,7 @@ class ParserCompiler extends CompilerEngine {
             return false;
         }
         $args = explode('=', $content, 2);
-        return sprintf('<?php list(%s) = %s; ?>', $args[0], $args[1]);
+        return sprintf('<?php list(%s) = %s; ?>', $args[0], $this->parsePhp($args[1]));
     }
 
     protected function parseLambda($content) {
@@ -641,7 +645,11 @@ class ParserCompiler extends CompilerEngine {
     protected function parseIf($content) {
         $args = explode(',', $content);
         $length = count($args);
-        $args[0] = $this->replaceVal($args[0]);
+        if ($length > 1 && strpos($args[0], ':') > 0) {
+            $args = [$content];
+            $length = 1;
+        }
+        $args[0] = $this->parsePhp($args[0]);
         if ($length == 1) {
             return '<?php if('.$args[0].'):?>';
         }
@@ -660,9 +668,9 @@ class ParserCompiler extends CompilerEngine {
     protected function parseSwitch($content) {
         $args = explode(',', $content);
         if (count($args) == 1) {
-            return sprintf('<?php switch(%s):?>', $this->replaceVal($content));
+            return sprintf('<?php switch(%s):?>', $this->parsePhp($content));
         }
-        return sprintf('<?php switch(%s): case %s:?>', $args[0], $args[1]);
+        return sprintf('<?php switch(%s): case %s:?>', $this->parsePhp($args[0]), $args[1]);
     }
 
     /**
@@ -900,5 +908,47 @@ class ParserCompiler extends CompilerEngine {
             return null;
         }
         return sprintf('<?php %s:%s; ?>', $content, $args);
+    }
+
+    public function parsePhp($content) {
+        return preg_replace_callback('/(([a-z]+)\:(.*)|([a-z]+)\(([^\(\)]*)\))/i',function($match) {
+            $tag = $match[2];
+            $args = $match[3];
+            if (empty($tag)) {
+                $tag = $match[4];
+                $args = $match[5];
+            }
+            if (!$this->hasFunc($tag) || in_array($tag, $this->blockTags)) {
+                return $match[0];
+            }
+            return sprintf('%s(%s)',
+                $this->funcList[$tag], $this->parseFuncParameters($args));
+        }, $content);
+    }
+
+    /**
+     * 输出代码
+     * @param $line
+     * @param mixed ...$args
+     * @return string
+     */
+    public function echo($line, ...$args) {
+        if (!empty($args)) {
+            $line = sprintf($line, ...$args);
+        }
+        return sprintf('<?= %s ?>', $line);
+    }
+
+    /**
+     * 代码块
+     * @param $line
+     * @param mixed ...$args
+     * @return string
+     */
+    public function block($line, ...$args) {
+        if (!empty($args)) {
+            $line = sprintf($line, ...$args);
+        }
+        return sprintf('<?php %s ?>', $line);
     }
 }
