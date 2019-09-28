@@ -911,7 +911,7 @@ class ParserCompiler extends CompilerEngine {
     }
 
     public function parsePhp($content) {
-        return preg_replace_callback('/(([a-z]+)\:(.*)|([a-z]+)\(([^\(\)]*)\))/i',function($match) {
+        $content = preg_replace_callback('/(([a-z]+)\:(.*)|([a-z]+)\(([^\(\)]*)\))/i',function($match) {
             $tag = $match[2];
             $args = $match[3];
             if (empty($tag)) {
@@ -924,6 +924,7 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('%s(%s)',
                 $this->funcList[$tag], $this->parseFuncParameters($args));
         }, $content);
+        return $this->replaceVal($content);
     }
 
     /**
