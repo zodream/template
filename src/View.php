@@ -207,7 +207,7 @@ class View {
      * @return mixed
      * @throws \Exception
      */
-    public function t($message, $param = [], $name = 'app') {
+    public function t($message, $param = [], $name = null) {
         return Factory::i18n()->translate($message, $param, $name);
     }
 
