@@ -87,6 +87,9 @@ trait RegisterAssets {
             || strpos($file, '//') !== false) {
             return $file;
         }
+        if (strpos($file, './') === 0) {
+            return  url($file, true, false);
+        }
         $ext = pathinfo($file, PATHINFO_EXTENSION);
         if (strpos($file, '@') === 0 && ($ext == 'js' || $ext == 'css')) {
             $file = $ext.'/'. substr($file, 1);
