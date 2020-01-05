@@ -458,7 +458,7 @@ class ParserCompiler extends CompilerEngine {
      * @return bool|string
      */
     protected function parseNote($content) {
-        if (($content{0} == '*'
+        if ((substr($content, 0, 1) == '*'
                 && substr($content, -1) == '*') ||
             (substr($content, 0, 2) == '//'
                 && substr($content, -2, 2) == '//')) {
