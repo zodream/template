@@ -30,9 +30,15 @@ class ViewFactory extends MagicObject {
 
 
     /**
+     * 当前模块的文件夹
      * @var Directory
      */
     protected $directory;
+    /**
+     * 原始根文件夹
+     * @var Directory
+     */
+    protected $rootDirectory;
 
     /**
      * @var EngineObject
@@ -77,10 +83,17 @@ class ViewFactory extends MagicObject {
         }
     }
 
-    
+    /**
+     * 设置文件夹
+     * @param $directory
+     * @return $this
+     */
     public function setDirectory($directory) {
         if (!$directory instanceof Directory) {
             $directory = Factory::root()->childDirectory($directory);
+        }
+        if (empty($this->rootDirectory)) {
+            $this->rootDirectory = $directory->parent();
         }
         $this->directory = $directory;
         return $this;
@@ -137,6 +150,27 @@ class ViewFactory extends MagicObject {
     }
 
     /**
+     * 获取完整的路径
+     * @param $file
+     * @return File
+     * @throws FileException
+     */
+    public function getCompleteFile($file) {
+        $first = substr($file, 0, 1);
+        if ($first !== '@') {
+            return $this->directory->childFile($file);
+        }
+        if (strpos($file, '/') === false) {
+            return $this->rootDirectory->childFile($file);
+        }
+        list($prefix, $path) = explode('/', $file, 2);
+        if ($prefix === '@root') {
+            return $this->rootDirectory->childFile($path);
+        }
+        throw new FileException($file);
+    }
+
+    /**
      * MAKE VIEW
      * @param string|File $file
      * @return View
@@ -148,7 +182,7 @@ class ViewFactory extends MagicObject {
             $file = new File($file);
         }
         if (!$file instanceof File) {
-            $file = $this->directory->childFile($this->fileSuffix($file));
+            $file = $this->getCompleteFile($this->fileSuffix($file));
         }
         if (!$file->exist()) {
             throw new FileException($file);
