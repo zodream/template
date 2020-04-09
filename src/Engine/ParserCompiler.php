@@ -322,7 +322,7 @@ class ParserCompiler extends CompilerEngine {
             return $val;
         }
         if ($first === '\'') {
-            $val = trim('\'');
+            $val = trim($val, '\'');
         }
         if (strpos($val, ',') > 0) {
             return $this->parseMultiVal(explode(',', $val));
@@ -330,7 +330,6 @@ class ParserCompiler extends CompilerEngine {
         if ($first === '$') {
             return $this->parseVal($val);
         }
-
         return sprintf('\'%s\'', $val);
     }
 
@@ -681,7 +680,7 @@ class ParserCompiler extends CompilerEngine {
     protected function parseFor($content) {
         $args = strpos($content, ';') !== false ?
             explode(';', $content) :
-            explode(',', $content);
+            $this->parseComma($content);
         $length = count($args);
         $args[0] = $this->replaceVal($args[0]);
         if ($length == 1) {
@@ -716,6 +715,27 @@ class ParserCompiler extends CompilerEngine {
             $args[0],
             $args[1]  ?: '$item',
             $args[2]);
+    }
+
+    protected function parseComma($content) {
+        if (strpos($content, ',') === false) {
+            return $content;
+        }
+        if (strpos($content, '(') === false
+            || strpos($content, ')') === false) {
+            return explode(',', $content);
+        }
+        $args = explode(')', $content);
+        $items = [$args[0]];
+        for($i = 1; $i < count($args); $i ++) {
+            $end = count($items) - 1;
+            $lines = explode(',', $args[$i]);
+            $items[$end] .= ')'.$lines[0];
+            for ($j = 1; $j < count($lines); $j ++) {
+                $items[] = $lines[$j];
+            }
+        }
+        return $items;
     }
 
     protected function isForTag($args) {

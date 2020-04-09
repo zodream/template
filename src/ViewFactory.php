@@ -116,7 +116,7 @@ class ViewFactory extends MagicObject {
     }
 
     /**
-     * @param EngineObject $engine
+     * @param EngineObject|string $engine
      * @return ViewFactory
      */
     public function setEngine($engine) {
