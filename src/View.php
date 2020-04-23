@@ -355,6 +355,9 @@ class View {
         if ($this->factory->canTheme($name)) {
             return $this->factory->invokeTheme($name, $arguments);
         }
+        if (!defined('DEBUG') || !DEBUG) {
+            return;
+        }
         throw new \BadMethodCallException(
             __(
                 '{name} METHOD NOT FIND!', compact('name')
