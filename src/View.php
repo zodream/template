@@ -350,7 +350,8 @@ class View {
 
     public function __call($name, $arguments) {
         if (method_exists($this->factory, $name)) {
-            return call_user_func_array([$this->factory, $name], $arguments);
+            $res = call_user_func_array([$this->factory, $name], $arguments);
+            return $res && $res instanceof ViewFactory ? $this : $res;
         }
         if ($this->factory->canTheme($name)) {
             return $this->factory->invokeTheme($name, $arguments);
