@@ -9,6 +9,7 @@ namespace Zodream\Template;
  */
 use Zodream\Disk\File;
 use Zodream\Disk\FileException;
+use Zodream\Helpers\Html;
 use Zodream\Helpers\Str;
 use Zodream\Service\Factory;
 use Zodream\Http\Uri;
@@ -218,11 +219,7 @@ class View {
      * @return string
      */
     public function text($html, $length = 0) {
-        $text = htmlspecialchars($html);
-        if ($length > 0) {
-            return Str::substr($text, 0, $length, true);
-        }
-        return $text;
+        return Html::text($html, $length);
     }
 
     /**
