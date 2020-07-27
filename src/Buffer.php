@@ -31,6 +31,7 @@ class Buffer {
         if (isset($this->lines[0])) {
             return $this->lines[0];
         }
+        return '';
     }
 
     public function hasNextLine() {
@@ -57,6 +58,7 @@ class Buffer {
         if (isset($this->line[0])) {
             return $this->line[0];
         }
+        return '';
     }
 
     public function eatChar() {
@@ -66,6 +68,7 @@ class Buffer {
             ++$this->column;
             return $char;
         }
+        return '';
     }
 
     public function eatChars($n) {
