@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template;
 
 /**
@@ -7,21 +8,34 @@ namespace Zodream\Template;
  * Date: 2016/12/25
  * Time: 10:28
  */
+
+use Exception;
 use Zodream\Disk\File;
-use Zodream\Infrastructure\Http\Request;
 use Zodream\Service\Factory;
 
 class AssetFile extends File {
 
+    /**
+     * @var string
+     */
     protected $realFile;
 
+    /**
+     * @var string
+     */
     protected $url;
 
     public function __construct($file) {
         parent::__construct($file);
-        $this->getRealFile();
+        try {
+            $this->getRealFile();
+        } catch (Exception $e) {
+        }
     }
 
+    /**
+     * @throws Exception
+     */
     protected function getRealFile(){
         $root = Factory::public_path();
         $script = Factory::root();
@@ -33,16 +47,16 @@ class AssetFile extends File {
 
         $md5 = md5($this->fullName, true);
         $this->url = sprintf(
-            'assets/%s/%s.%s',
+            '%s/assets/%s/%s.%s',
             $root,
             substr($md5, 0, 8),
             substr($md5, 8),
-            $this->extension
+            $this->getExtension()
         );
         $this->realFile = $script->file($this->url);
     }
 
-    public function create() {
+    public function create(): bool {
         if (is_file($this->realFile)) {
             return true;
         }
@@ -55,9 +69,9 @@ class AssetFile extends File {
 
     /**
      * GET URL IN WEB ROOT
-     * @return bool|string
+     * @return string
      */
-    public function getUrl() {
+    public function getUrl(): string {
         return $this->url;
     }
 }
