@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template;
 
 /**
@@ -10,8 +11,6 @@ namespace Zodream\Template;
 use Zodream\Disk\File;
 use Zodream\Disk\FileException;
 use Zodream\Helpers\Html;
-use Zodream\Helpers\Str;
-use Zodream\Service\Factory;
 use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
 use Zodream\Template\Concerns\ConditionTrait;
@@ -158,7 +157,7 @@ class View {
         } catch (\Exception $e) {
             $this->handleViewException($e, $obLevel);
         } catch (\Throwable $e) {
-            $this->handleViewException(new \Exception($e), $obLevel);
+            $this->handleViewException(new \Exception($e->getMessage(), $e->getCode(), $e), $obLevel);
         }
         return ltrim(ob_get_clean());
     }
@@ -197,7 +196,7 @@ class View {
      * @return string
      */
     public function ago($time) {
-        return Time::isTimeAgo($time);
+        return Time::isTimeAgo(intval($time));
     }
 
     /**
@@ -209,7 +208,7 @@ class View {
      * @throws \Exception
      */
     public function t($message, $param = [], $name = null) {
-        return Factory::i18n()->translate($message, $param, $name);
+        return trans($message, $param, $name);
     }
 
     /**
@@ -226,15 +225,12 @@ class View {
      * GET COMPLETE URL
      * @param null $file
      * @param null $extra
-     * @param bool $rewrite
+     * @param null $secure
      * @return string|Uri
      * @throws Exception
      */
-    public function url($file = null, $extra = null, $rewrite = true) {
-        if ($extra === false && $rewrite === true) {
-            list($extra, $rewrite) = [null, $extra];
-        }
-        return url()->to($file, $extra, true, $rewrite);
+    public function url($file = null, $extra = null, $secure = null) {
+        return url()->to(...func_get_args());
     }
 
     /**

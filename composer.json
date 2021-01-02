@@ -13,13 +13,20 @@
         }
     ],
     "require": {
-        "php": ">=5.6.0",
+        "php": ">=8.0",
         "zodream/zodream": "*",
         "zodream/helpers": "*"
     },
     "autoload": {
         "psr-4": {
             "Zodream\\Template\\": "src/"
+        }
+    },
+    "extra": {
+        "zodream": {
+            "providers": [
+                "Zodream\\Template\\ViewServiceProvider"
+            ]
         }
     }
 }

@@ -11,7 +11,6 @@ namespace Zodream\Template;
 
 use Exception;
 use Zodream\Disk\File;
-use Zodream\Service\Factory;
 
 class AssetFile extends File {
 
@@ -37,8 +36,8 @@ class AssetFile extends File {
      * @throws Exception
      */
     protected function getRealFile(){
-        $root = Factory::public_path();
-        $script = Factory::root();
+        $root = public_path();
+        $script = app_path();
         if ($root->isParent($this->directory)) {
             $this->realFile = $this->fullName;
             $this->url = $this->getRelative($script);

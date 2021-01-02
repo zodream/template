@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template;
 
 /**
@@ -8,8 +9,7 @@ namespace Zodream\Template;
  * Time: 9:48
  */
 use Zodream\Helpers\Time;
-use Zodream\Infrastructure\Traits\ConfigTrait;
-use Zodream\Service\Factory;
+use Zodream\Infrastructure\Concerns\ConfigTrait;
 use Zodream\Infrastructure\Caching\FileCache;
 use Zodream\Disk\Directory;
 use Zodream\Disk\File;
@@ -53,16 +53,18 @@ class ViewFactory extends MagicObject {
     protected $cache;
 
     protected $assetsDirectory;
+
+    protected $defaultFile;
     
     public function __construct() {
         $this->loadConfigs([
-            'driver' => null,
+            'driver' => '',
             'directory' => 'UserInterface/'.app('app.module'),
             'suffix' => '.php',
             'asset_directory' => 'assets',
             'cache' => 'data/views'
         ]);
-        if (class_exists($this->configs['driver'])) {
+        if (!empty($this->configs['driver']) && class_exists($this->configs['driver'])) {
             $this->setEngine($this->configs['driver']);
         }
         if (isset($this->configs['theme'])) {
@@ -90,7 +92,7 @@ class ViewFactory extends MagicObject {
      */
     public function setDirectory($directory) {
         if (!$directory instanceof Directory) {
-            $directory = Factory::root()->childDirectory($directory);
+            $directory = app_path()->childDirectory($directory);
         }
         if (empty($this->rootDirectory)) {
             $this->rootDirectory = $directory->parent();
@@ -112,6 +114,15 @@ class ViewFactory extends MagicObject {
      */
     public function setLayout($layout) {
         $this->layout = $layout;
+        return $this;
+    }
+
+    /**
+     * @param mixed $defaultFile
+     */
+    public function setDefaultFile($defaultFile)
+    {
+        $this->defaultFile = $defaultFile;
         return $this;
     }
 
@@ -211,7 +222,7 @@ class ViewFactory extends MagicObject {
      */
     public function render($file, array $data = array(), callable $callback = null) {
         $content = $this->setAttribute($data)
-            ->getView($file)->render($callback);
+            ->getView(empty($file) ? $this->defaultFile : $file)->render($callback);
         $layout = $this->findLayoutFile();
         if (empty($layout)) {
             return $content;

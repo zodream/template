@@ -3,7 +3,6 @@ namespace Zodream\Template\Concerns;
 
 use Zodream\Helpers\Arr;
 use Zodream\Infrastructure\Support\Html;
-use Zodream\Service\Factory;
 use Zodream\Template\AssetFile;
 use Zodream\Template\View;
 use Exception;
@@ -70,7 +69,7 @@ trait RegisterAssets {
         if (strpos($file, '@') === 0 && ($ext == 'js' || $ext == 'css')) {
             $file = $ext.'/'. substr($file, 1);
         }
-        return new AssetFile(Factory::public_path()->file($this->assetsDirectory.$file));
+        return new AssetFile(public_path()->file($this->assetsDirectory.$file));
     }
 
     /**
@@ -78,20 +77,21 @@ trait RegisterAssets {
      * @return string
      * @throws Exception
      */
-    public function getAssetUri($file) {
+    public function getAssetUri($file): string
+    {
         $file = $this->getAssetFromMaps($file);
         if (is_file($file)) {
             return (new AssetFile($file))->getUrl();
         }
-        if (strpos($file, '/') === 0
-            || strpos($file, '//') !== false) {
+        if (str_starts_with($file, '/')
+            || str_contains($file, '//')) {
             return $file;
         }
-        if (strpos($file, './') === 0) {
-            return  url($file, true, false);
+        if (str_starts_with($file, './')) {
+            return url($file, true, false);
         }
         $ext = pathinfo($file, PATHINFO_EXTENSION);
-        if (strpos($file, '@') === 0 && ($ext == 'js' || $ext == 'css')) {
+        if (str_starts_with($file, '@') && ($ext == 'js' || $ext == 'css')) {
             $file = $ext.'/'. substr($file, 1);
         }
         return url()->asset($this->assetsDirectory.$file);
