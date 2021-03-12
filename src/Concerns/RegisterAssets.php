@@ -66,7 +66,7 @@ trait RegisterAssets {
             return new AssetFile($file);
         }
         $ext = pathinfo($file, PATHINFO_EXTENSION);
-        if (strpos($file, '@') === 0 && ($ext == 'js' || $ext == 'css')) {
+        if (str_starts_with($file, '@') && ($ext == 'js' || $ext == 'css')) {
             $file = $ext.'/'. substr($file, 1);
         }
         return new AssetFile(public_path()->file($this->assetsDirectory.$file));

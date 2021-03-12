@@ -245,7 +245,7 @@ class View {
 
     /**
      * @param $file
-     * @return string|Uri
+     * @return AssetFile
      * @throws Exception
      */
     public function assetFile($file) {
@@ -258,14 +258,14 @@ class View {
      * @return File| string
      */
     protected function getExtendFile($name) {
-        if (strpos($name, '@') === 0) {
+        if (str_starts_with($name, '@')) {
             return $this->factory->invokeTheme('getFile', [substr($name, 1)]);
         }
-        if (strpos($name, './') === 0) {
+        if (str_starts_with($name, './')) {
             return $this->file->getDirectory()
                 ->getFile($this->factory->fileSuffix(substr($name, 2)));
         }
-        if (strpos($name, '../') === 0) {
+        if (str_starts_with($name, '../')) {
             return $this->file->getDirectory()->parent()
                 ->getFile($this->factory->fileSuffix($name));
         }
