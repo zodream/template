@@ -225,12 +225,16 @@ class View {
      * GET COMPLETE URL
      * @param null $file
      * @param null $extra
+     * @param bool $encode
      * @param null $secure
      * @return string|Uri
      * @throws Exception
      */
-    public function url($file = null, $extra = null, $secure = null) {
-        return url()->to(...func_get_args());
+    public function url($file = null, $extra = null, bool $encode = true, $secure = null) {
+        if (is_bool($extra)) {
+            list($extra, $encode) = [null, $extra];
+        }
+        return url()->to($file, $extra, $secure, $encode);
     }
 
     /**
