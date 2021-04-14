@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template\Engine;
 
 use Zodream\Disk\File;
@@ -166,7 +167,7 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function setValueToFunc($func, $args) {
-        if (strpos($func, '%') === false) {
+        if (!str_contains($func, '%')) {
             return $this->echo('%s(%s)', $func, $args);
         }
         if (substr_count($func, '%') == 1) {
@@ -250,10 +251,10 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseThis($content) {
-        if (strpos($content, 'this.') !== 0) {
+        if (!str_starts_with($content, 'this.')) {
             return false;
         }
-        if (strpos($content, '=') === false) {
+        if (!str_contains($content, '=')) {
             return false;
         }
         list($tag, $val) = explode('=', substr($content, 5));
@@ -304,10 +305,13 @@ class ParserCompiler extends CompilerEngine {
 
     /**
      * 但值进行转化，不包括通过 . 对数组读取
-     * @param $val
+     * @param string $val
      * @return string
      */
-    protected function getRealVal($val) {
+    protected function getRealVal(string $val) {
+        if ($val === '') {
+            return '';
+        }
         if (empty($val)) {
             return 'null';
         }
@@ -356,10 +360,10 @@ class ParserCompiler extends CompilerEngine {
         if (empty($val)) {
             return '';
         }
-        if (strpos($val, 'this.') === 0) {
+        if (str_starts_with($val, 'this.')) {
             $val = '$this->'.substr($val, 5);
         }
-        if (strpos($val, '.$') !== false) {
+        if (str_contains($val, '.$')) {
             $all = explode('.$', $val);
             foreach ($all AS $key => $val) {
                 $all[$key] = $key == 0 ? $this->makeVar($val)
@@ -373,22 +377,22 @@ class ParserCompiler extends CompilerEngine {
             return $p;
         }
         foreach ($filters as $filter) {
-            list($tag, $vals) = Str::explode($filter, ':', 2);
+            list($tag, $values) = Str::explode($filter, ':', 2);
             if ($this->allowFilters !== true &&
                 !in_array($tag, (array)$this->allowFilters)) {
                 continue;
             }
-            $p = sprintf('%s(%s%s)', $tag, $p, empty($vals) ? '' : (','.$vals));
+            $p = sprintf('%s(%s%s)', $tag, $p, empty($values) ? '' : (','.$values));
         }
         return $p;
     }
 
     /**
      * 输出数组
-     * @param $val
+     * @param string $val
      * @return mixed|string
      */
-    protected function makeVar($val) {
+    protected function makeVar(string $val) {
         if (strrpos($val, '.') === false) {
             return $val;
         }
@@ -407,11 +411,11 @@ class ParserCompiler extends CompilerEngine {
 
     /**
      * 是否包含指定顺序的字符
-     * @param $content
-     * @param $search
+     * @param string $content
+     * @param array|string $search
      * @return bool
      */
-    protected function hasOrderTag($content, $search) {
+    protected function hasOrderTag(string $content, array|string $search) {
         $last = -1;
         foreach ((array)$search as $tag) {
             $tmpLast = $last < 0 ? 0 : $last;
@@ -429,12 +433,12 @@ class ParserCompiler extends CompilerEngine {
 
     /**
      * 是否有其中一个标签
-     * @param $content
-     * @param array $tags
+     * @param string $content
+     * @param array|string $tags
      * @param int $index
      * @return bool|int
      */
-    protected function hasOneTag($content, $tags, $index = 0) {
+    protected function hasOneTag(string $content, array|string $tags, int $index = 0) {
         if (!is_array($tags)) {
             return strpos($content, $tags, $index);
         }
@@ -456,7 +460,7 @@ class ParserCompiler extends CompilerEngine {
      * @param $content
      * @return bool|string
      */
-    protected function parseNote($content) {
+    protected function parseNote(string $content) {
         if ((substr($content, 0, 1) == '*'
                 && substr($content, -1) == '*') ||
             (substr($content, 0, 2) == '//'
@@ -468,10 +472,10 @@ class ParserCompiler extends CompilerEngine {
 
     /**
      * 转化赋值
-     * @param $content
+     * @param string $content
      * @return bool|string
      */
-    protected function parseAssign($content) {
+    protected function parseAssign(string $content) {
         $eqI = strpos($content, '=');
         $dI = strpos($content, ',');
         if ($eqI === false || $dI === false || $dI >= $eqI) {
@@ -481,7 +485,7 @@ class ParserCompiler extends CompilerEngine {
         return sprintf('<?php list(%s) = %s; ?>', $args[0], $this->parsePhp($args[1]));
     }
 
-    protected function parseLambda($content) {
+    protected function parseLambda(string $content) {
         if (preg_match('/(.+)=(.+)(\?|\|\|)((.*):)?(.+)/', $content, $match)) {
             return sprintf('<?php %s = %s ? %s : %s; ?>',
                 $match[1], $match[2], $match[5] ?: $match[2] , $match[6]);
@@ -500,7 +504,7 @@ class ParserCompiler extends CompilerEngine {
         if ($tag === 'request') {
             return $this->parseRequest($content);
         }
-        if (strpos($tag, 'request.') === 0) {
+        if (str_starts_with($tag, 'request.')) {
             return $this->parseRequest($content, substr($tag, 8));
         }
         if ($tag === 'for') {
@@ -541,14 +545,17 @@ class ParserCompiler extends CompilerEngine {
         if ($tag === 'break' || $tag == 'continue') {
             return sprintf('<?php %s %s; ?>', $tag, $content);
         }
-        if (strpos($tag, 'this.') === 0) {
+        if (str_starts_with($tag, 'this.')) {
             // 解析this. => $this->
             return sprintf('<?=$this->%s(%s)?>', substr($tag, 5), $this->getRealVal($content));
+        }
+        if (str_starts_with($tag, '$') && substr_count($tag, '.') === 1) {
+            return sprintf('<?=%s(%s)?>', str_replace('.', '->', $tag), $this->getRealVal($content));
         }
         return $this->invokeFunc($tag, $content);
     }
 
-    protected function parseUrl($content) {
+    protected function parseUrl(string $content) {
         $func = '<?= $this->url(%s) ?>';
         if ($this->hasFunc('url')) {
             $func = $this->funcList['url'];
@@ -572,7 +579,7 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parsePage($content) {
-        if (strpos($content, ',') === false) {
+        if (!str_contains($content, ',')) {
             return sprintf('<?= %s->getLink() ?>', $content);
         }
         list($model, $options) = explode(',', $content, 2);
@@ -621,13 +628,13 @@ class ParserCompiler extends CompilerEngine {
         $files = [];
         $data = '';
         foreach (explode(',', $content) as $name) {
-            if (strpos($name, '[') !== false) {
+            if (str_contains($name, '[')) {
                 $start = strpos($content, '[');
                 $data = substr($content, $start,
                     strpos($content, ']', $start) - $start - 1);
                 break;
             }
-            if (strpos($name, '$') !== 0) {
+            if (!str_starts_with($name, '$')) {
                 $name = sprintf('\'%s\'', trim($name, '\'"'));
             }
             $files[] = $name;
@@ -677,8 +684,8 @@ class ParserCompiler extends CompilerEngine {
      * @param $content
      * @return string
      */
-    protected function parseFor($content) {
-        $args = strpos($content, ';') !== false ?
+    protected function parseFor(string $content) {
+        $args = str_contains($content, ';') ?
             explode(';', $content) :
             $this->parseComma($content);
         $length = count($args);
@@ -718,11 +725,11 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseComma($content) {
-        if (strpos($content, ',') === false) {
+        if (!str_contains($content, ',')) {
             return $content;
         }
-        if (strpos($content, '(') === false
-            || strpos($content, ')') === false) {
+        if (!str_contains($content, '(')
+            || !str_contains($content, ')')) {
             return explode(',', $content);
         }
         $args = explode(')', $content);
@@ -769,9 +776,9 @@ class ParserCompiler extends CompilerEngine {
     protected function getForItem($content) {
         $key = '$key';
         $item = $content;
-        if (strpos($content, '=>') !== false) {
+        if (str_contains($content, '=>')) {
             list($key, $item) = explode('=>', $content);
-        } elseif (strpos($content, ' ') !== false) {
+        } elseif (str_contains($content, ' ')) {
             list($key, $item) = explode(' ', $content);
         }
         if (empty($key)) {
