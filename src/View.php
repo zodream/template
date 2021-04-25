@@ -196,7 +196,7 @@ class View {
      * @return string
      */
     public function ago($time) {
-        return Time::isTimeAgo(intval($time));
+        return Time::ago(intval($time));
     }
 
     /**
