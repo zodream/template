@@ -24,9 +24,9 @@ class ViewFactory extends MagicObject {
 
     use ConfigTrait, RegisterAssets, RegisterTheme;
 
-    protected $configs = [];
+    protected array $configs = [];
 
-    protected $configKey = 'view';
+    protected string $configKey = 'view';
 
 
     /**
@@ -45,7 +45,7 @@ class ViewFactory extends MagicObject {
      */
     protected $engine;
 
-    protected $layout = false;
+    protected string|bool $layout = false;
 
     /**
      * @var FileCache
@@ -171,7 +171,7 @@ class ViewFactory extends MagicObject {
         if ($first !== '@') {
             return $this->directory->childFile($file);
         }
-        if (strpos($file, '/') === false) {
+        if (!str_contains($file, '/')) {
             return $this->rootDirectory->childFile($file);
         }
         list($prefix, $path) = explode('/', $file, 2);
