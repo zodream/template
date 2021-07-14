@@ -45,7 +45,7 @@ class ViewFactory extends MagicObject {
      */
     protected $engine;
 
-    protected string|bool $layout = false;
+    protected string|File $layout = '';
 
     /**
      * @var FileCache
