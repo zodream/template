@@ -196,6 +196,9 @@ class View {
      * @return string
      */
     public function ago($time) {
+        if (is_string($time) && (str_contains($time, '-') || str_contains($time, ':'))) {
+            return Time::ago(strtotime($time));
+        }
         return Time::ago(intval($time));
     }
 
