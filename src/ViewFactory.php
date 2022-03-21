@@ -220,7 +220,7 @@ class ViewFactory extends MagicObject {
      * @throws FileException
      * @throws \Exception
      */
-    public function render($file, array $data = array(), callable $callback = null) {
+    public function render(string|File $file, array $data = array(), callable $callback = null) {
         $content = $this->setAttribute($data)
             ->getView(empty($file) ? $this->defaultFile : $file)->render($callback);
         $layout = $this->findLayoutFile();
