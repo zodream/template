@@ -57,38 +57,38 @@ t f bool                    true false
 
 class ParserCompiler extends CompilerEngine {
 
-    protected $beginTag = '{';
+    protected string $beginTag = '{';
 
-    protected $endTag = '}';
+    protected string $endTag = '}';
 
-    protected $salePattern = '/\<\?(.|\r\n|\s)*\?\>/U';
+    protected string $salePattern = '/\<\?(.|\r\n|\s)*\?\>/U';
 
-    protected $blockTag = false; // 代码块开始符
+    protected string|bool $blockTag = false; // 代码块开始符
 
-    protected $forTags = [];
+    protected array $forTags = [];
 
-    protected $allowFilters = true;
+    protected bool $allowFilters = true;
 
     /**
      * 临时替代变量
      * @var string
      */
-    protected $tplHash = 'c7a9cdc11f7d259de872d3e6ff9739be';
+    protected string $tplHash = 'c7a9cdc11f7d259de872d3e6ff9739be';
 
-    protected $funcList = [
+    protected array $funcList = [
         'header' => '$this->header',
         'footer' => '$this->footer',
     ];
 
-    protected $blockTags = [];
+    protected array $blockTags = [];
 
     /**
      * 设置提取标签
-     * @param $begin
-     * @param $end
+     * @param string $begin
+     * @param string $end
      * @return $this
      */
-    public function setTag($begin, $end) {
+    public function setTag(string $begin, string $end) {
         $this->beginTag = $begin;
         $this->endTag = $end;
         return $this;
@@ -96,12 +96,12 @@ class ParserCompiler extends CompilerEngine {
 
     /**
      * 注册方法
-     * @param $tag
+     * @param string $tag
      * @param $func
      * @param bool $isBlock
      * @return $this
      */
-    public function registerFunc($tag, $func = null, $isBlock = false) {
+    public function registerFunc(string $tag, mixed $func = null, bool $isBlock = false) {
         $this->funcList[$tag] = empty($func) ? $tag : $func;
         if ($isBlock) {
             $this->blockTags[] = $tag;
@@ -111,27 +111,27 @@ class ParserCompiler extends CompilerEngine {
 
     /**
      * 判断是否有方法
-     * @param $tag
+     * @param string $tag
      * @return bool
      */
-    public function hasFunc($tag) {
+    public function hasFunc(string $tag) {
         return array_key_exists($tag, $this->funcList);
     }
 
     /**
      * 执行方法
-     * @param $tag
-     * @param $args
+     * @param string $tag
+     * @param string $args
      * @return bool|string
      */
-    public function invokeFunc($tag, $args) {
+    public function invokeFunc(string $tag, string $args) {
         if (!$this->hasFunc($tag)) {
             return false;
         }
         return $this->invokeFuncParse($this->funcList[$tag], $this->parseFuncParameters($args));
     }
 
-    public function parseFuncParameters($args) {
+    public function parseFuncParameters(string $args) {
         if (preg_match_all('/(\w+?)=((\[.+?])|(".+?")|(\'.+?\')|(\S+))/', $args, $matches, PREG_SET_ORDER)) {
             $args = sprintf('[%s]', implode(',', array_map(function ($item) {
                 $first = substr($item[2], 0, 1);
@@ -156,7 +156,7 @@ class ParserCompiler extends CompilerEngine {
         return $args;
     }
 
-    protected function invokeFuncParse($func, $args) {
+    protected function invokeFuncParse(mixed $func, string $args) {
         if (is_string($func)) {
             return $this->setValueToFunc($func, $args);
         }
@@ -166,7 +166,7 @@ class ParserCompiler extends CompilerEngine {
         return false;
     }
 
-    protected function setValueToFunc($func, $args) {
+    protected function setValueToFunc(string $func, string $args) {
         if (!str_contains($func, '%')) {
             return $this->echo('%s(%s)', $func, $args);
         }
@@ -180,7 +180,7 @@ class ParserCompiler extends CompilerEngine {
         return $this->parse($file->read());
     }
 
-    public function parse($content) {
+    public function parse(string $content) {
         $this->initHeaders();
         $content = preg_replace($this->salePattern, '', $content);
         $pattern = sprintf('/%s[ 　]*(.+?)[ 　]*%s/i', $this->beginTag, $this->endTag);
@@ -191,7 +191,7 @@ class ParserCompiler extends CompilerEngine {
         return $this->parse($arg);
     }
 
-    protected function replaceCallback($match) {
+    protected function replaceCallback(array $match) {
         $content = $match[1];
         // 判断文本快结束符
         if ($content == '/>' && $this->blockTag !== false) {
@@ -250,7 +250,7 @@ class ParserCompiler extends CompilerEngine {
         return $match[0];
     }
 
-    protected function parseThis($content) {
+    protected function parseThis(string $content) {
         if (!str_starts_with($content, 'this.')) {
             return false;
         }
@@ -268,12 +268,46 @@ class ParserCompiler extends CompilerEngine {
     }
 
     /**
+     * 转化为方法的参数
+     * @param string $content 'item=$item 1 map=$this.a'
+     * @return string '['item'=>$item], 1, ['map'=>$this.a]'
+     */
+    protected function parseParameters(string $content): string {
+        $items = [];
+        $inArr = false;
+        foreach (explode(' ', $content) as $block) {
+            if (empty($block)) {
+                continue;
+            }
+            if (str_contains($block, '=')) {
+                list($k, $v) = explode('=', $block);
+                if ($inArr) {
+                    $items[] = sprintf('%s=>%s', $this->getRealVal($k), $this->getRealVal($v));
+                } else {
+                    $inArr = true;
+                    $items[] = sprintf('[%s=>%s', $this->getRealVal($k), $this->getRealVal($v));
+                }
+                continue;
+            }
+            if ($inArr) {
+                $items[] = ']';
+            }
+            $items[] = $this->getRealVal($block);
+            $inArr = false;
+        }
+        if ($inArr) {
+            $items[] = ']';
+        }
+        return implode(',', $items);
+    }
+
+    /**
      * 引入js,css 或加载文件
-     * @param $content
+     * @param string $content
      * @return bool|null|string
      */
-    protected function parseInclude($content) {
-        if (!preg_match('/^(link|script|js|css|php|tpl)\s+(src|href|file)=[\'"]?([^"\']+)[\'"]?/i', $content, $match)) {
+    protected function parseInclude(string $content) {
+        if (!preg_match('/^(link|script|js|css|php|tpl)\s+(src|href|file)=[\'"]?([^"\'\s]+)[\'"]?/i', $content, $match)) {
             return false;
         }
         $match[1] = strtolower($match[1]);
@@ -288,19 +322,19 @@ class ParserCompiler extends CompilerEngine {
                 $this->arrayToLink($files, '->registerJsFile(%s)')));
             return null;
         }
-        $content = '';
+        $line = '';
         foreach ($files as $file) {
             if ($match[1] == 'php') {
-                $content .= sprintf('<?php include \'%s\';?>', $file);
+                $line .= sprintf('<?php include \'%s\';?>', $file);
                 continue;
             }
             if ($match[1] == 'tpl') {
-                $content .= sprintf('<?php $this->extend(\'%s\');?>', $file);
+                $line .= sprintf('<?php $this->extend(\'%s\', %s);?>', $file, $this->parseParameters(substr($content, strlen($match[0]))));
                 continue;
             }
             return false;
         }
-        return $content;
+        return $line;
     }
 
     /**
@@ -341,7 +375,7 @@ class ParserCompiler extends CompilerEngine {
         return implode(',', array_map([$this, 'getRealVal'], $vals));
     }
 
-    protected function replaceVal($content) {
+    protected function replaceVal(string $content) {
         return preg_replace_callback('/\$[A-z0-9_]+(?:\.\w+)+/i', function ($match) {
             return $this->parseVal($match[0]);
         }, $content);
