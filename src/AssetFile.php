@@ -46,8 +46,9 @@ class AssetFile extends File {
 
         $md5 = md5($this->fullName, true);
         $this->url = sprintf(
-            '%s/assets/%s/%s.%s',
+            '%s/%s/%s/%s.%s',
             $root,
+            config('view.asset_directory'),
             substr($md5, 0, 8),
             substr($md5, 8),
             $this->getExtension()

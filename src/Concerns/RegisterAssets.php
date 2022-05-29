@@ -9,7 +9,7 @@ use Exception;
 
 trait RegisterAssets {
 
-    protected $registerAssets = [
+    protected array $registerAssets = [
         'metaTags' => [],
         'linkTags' => [],
         'js' => [],
@@ -18,7 +18,7 @@ trait RegisterAssets {
         'cssFiles' => []
     ];
 
-    protected $currentRegisterAssets = [
+    protected array $currentRegisterAssets = [
         'metaTags' => [],
         'linkTags' => [],
         'js' => [],
@@ -27,9 +27,9 @@ trait RegisterAssets {
         'cssFiles' => []
     ];
 
-    protected $assetsMaps = [];
+    protected array $assetsMaps = [];
 
-    protected $sections = [];
+    protected array $sections = [];
 
 
     public function registerAssetsMap($files, $url = null) {
@@ -47,7 +47,7 @@ trait RegisterAssets {
             ? $this->assetsMaps[$file] : $file;
     }
 
-    public function setAssetsDirectory($directory) {
+    public function setAssetsDirectory(string $directory) {
         $this->assetsDirectory = '/'.trim($directory, '/');
         if ($this->assetsDirectory != '/') {
             $this->assetsDirectory .= '/';
