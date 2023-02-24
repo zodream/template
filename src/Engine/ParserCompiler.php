@@ -27,6 +27,7 @@ use Zodream\Helpers\Str;
 {for:name,key=>value}           <?php foreach(name as key=>value):?>
 {for:name,key=>value,length}     <?php $i = 0; foreach(name as key=>value): $i ++; if ($i > length): break; endif;?>
 {for:name,key=>value,>=h}        <?php foreach(name as key=>value): if (key >=h):?>
+{for:$i,$i>0,$i++}              <?php for($i; $i>0; $i++):?>
 {/for}                           <?php endforeach;?>
 
 {name=qq?v}                     <?php name = qq ? qq : v;?>
@@ -548,10 +549,10 @@ class ParserCompiler extends CompilerEngine {
             return $this->parseSwitch($content);
         }
         if ($tag === 'case') {
-            sprintf('<?php case %s:?>', $content);
+            return sprintf('<?php case %s:?>', $content);
         }
         if ($tag === 'default') {
-            sprintf('<?php default:?>', $content);
+            return sprintf('<?php default:?>', $content);
         }
         if ($tag === 'extend') {
             return $this->parseExtend($content);
