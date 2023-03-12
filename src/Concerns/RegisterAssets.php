@@ -138,7 +138,7 @@ trait RegisterAssets {
      * @param null $key
      * @return $this
      */
-    public function registerMetaTag($content, $options = array(), $key = null) {
+    public function registerMetaTag($content, array $options = array(), $key = null) {
         if ($key === null) {
             $this->currentRegisterAssets['metaTags'][] = Html::meta($content, $options);
         } else {
@@ -153,7 +153,7 @@ trait RegisterAssets {
      * @param null $key
      * @return $this
      */
-    public function registerLinkTag($url, $options = array(), $key = null) {
+    public function registerLinkTag($url, array $options = array(), $key = null) {
         if ($key === null) {
             $this->currentRegisterAssets['linkTags'][] = Html::link($url, $options);
         } else {
@@ -175,7 +175,7 @@ trait RegisterAssets {
      * @return static
      * @throws Exception
      */
-    public function registerCssFile($urls, $options = array(), $key = null) {
+    public function registerCssFile($urls, array $options = array(), $key = null) {
         $options['rel'] = 'stylesheet';
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;

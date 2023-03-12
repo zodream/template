@@ -874,17 +874,24 @@ class ParserCompiler extends CompilerEngine {
         }
         if ($first === '@') {
             //
-            return $this->parseScriptRegister($content);
+            return $this->parseScriptRegister(substr($content, 1));
         }
         return false;
     }
 
     protected function parseScriptRegister($content) {
-        if (preg_match('/^@.+\.js$/', $content, $match)) {
+        $splitIndex = strpos($content, ':');
+        if ($splitIndex > 1) {
+            $func = substr($content, 1, $splitIndex);
+            if ($this->hasFunc($func)) {
+                $content = $this->invokeFunc($func, substr($content, $splitIndex + 1));
+            }
+        }
+        if (preg_match('/^.+\.js$/', $content, $match)) {
             $this->addHeader(sprintf('$this->registerJsFile(\'%s\');', $content));
             return null;
         }
-        if (preg_match('/^@.+\.css$/', $content, $match)) {
+        if (preg_match('/^.+\.css$/', $content, $match)) {
             $this->addHeader(sprintf('$this->registerCssFile(\'%s\');', $content));
             return null;
         }
