@@ -111,7 +111,7 @@ class View {
      * @return mixed|null|string
      * @throws \Exception
      */
-    public function renderWithData($data = [], callable $callback = null) {
+    public function renderWithData(array $data = [], callable $callback = null) {
         try {
             $contents = $this->renderContent($data);
             $response = isset($callback) ? call_user_func($callback, $this, $contents) : null;
@@ -127,7 +127,7 @@ class View {
      * @throws Exception
      * @throws FileException
      */
-    protected function renderContent($renderOnlyData = []) {
+    protected function renderContent(array $renderOnlyData = []) {
         if (!$this->sourceFile->exist()) {
             throw new FileException(
                 __('{file} not exist!', [
@@ -147,7 +147,7 @@ class View {
      * @return string
      * @throws Exception
      */
-    protected function renderFile($renderViewFile, array $renderViewData) {
+    protected function renderFile(string $renderViewFile, array $renderViewData) {
         $obLevel = ob_get_level();
         ob_start();
         extract($renderViewData, EXTR_SKIP);
@@ -171,7 +171,7 @@ class View {
      *
      * @throws $e
      */
-    protected function handleViewException(\Exception $e, $obLevel) {
+    protected function handleViewException(\Exception $e, int $obLevel) {
         while (ob_get_level() > $obLevel) {
             ob_end_clean();
         }
@@ -180,10 +180,10 @@ class View {
 
     /**
      * 输出格式化后的时间
-     * @param integer|string $time
+     * @param integer|string|null $time
      * @return string
      */
-    public function time($time = null) {
+    public function time(mixed $time = null) {
         if (is_null($time)) {
             return null;
         }
@@ -287,7 +287,7 @@ class View {
      * @throws FileException
      * @throws \Exception
      */
-    public function extend($name, $data = []) {
+    public function extend($name, array $data = []) {
         foreach ((array)$name as $item) {
             echo $this->factory->getView($this->getExtendFile($item))
                 ->renderWithData($data);
@@ -302,12 +302,12 @@ class View {
      * @param null $key
      * @return View
      */
-    public function registerMetaTag($content, $options = array(), $key = null) {
+    public function registerMetaTag($content, array $options = array(), $key = null) {
         $this->factory->registerMetaTag($content, $options, $key);
         return $this;
     }
 
-    public function registerLinkTag($url, $options = array(), $key = null) {
+    public function registerLinkTag($url, array $options = array(), $key = null) {
         $this->factory->registerLinkTag($url, $options, $key);
         return $this;
     }
@@ -317,7 +317,7 @@ class View {
         return $this;
     }
 
-    public function registerCssFile($url, $options = array(), $key = null) {
+    public function registerCssFile($url, array $options = array(), $key = null) {
         $this->factory->registerCssFile($url, $options, $key);
         return $this;
     }
@@ -327,7 +327,7 @@ class View {
         return $this;
     }
 
-    public function registerJsFile($url, $options = [], $key = null) {
+    public function registerJsFile($url, array $options = [], $key = null) {
         $this->factory->registerJsFile($url, $options, $key);
         return $this;
     }

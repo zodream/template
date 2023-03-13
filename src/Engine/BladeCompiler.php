@@ -85,6 +85,9 @@ class BladeCompiler extends CompilerEngine {
     protected $forelseCounter = 0;
 
 
+    public function registerFunc(string $tag, mixed $func = null, bool $isBlock = false): ITemplateEngine {
+        return $this;
+    }
 
     /**
      * Compile the given Blade template contents.
@@ -92,7 +95,7 @@ class BladeCompiler extends CompilerEngine {
      * @param  string  $value
      * @return string
      */
-    public function compileString($value) {
+    public function compile(string $value): string {
         $result = '';
 
         $this->footer = [];

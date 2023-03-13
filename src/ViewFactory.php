@@ -15,9 +15,11 @@ use Zodream\Disk\Directory;
 use Zodream\Disk\File;
 use Zodream\Template\Concerns\RegisterAssets;
 use Zodream\Template\Concerns\RegisterTheme;
-use Zodream\Template\Engine\EngineObject;
 use Zodream\Disk\FileException;
 use Zodream\Infrastructure\Base\MagicObject;
+use Zodream\Template\Engine\ITemplateCompiler;
+use Zodream\Template\Engine\ITemplateEngine;
+use Zodream\Template\Engine\ITemplateExecutor;
 use Zodream\Template\Events\ViewCompiled;
 
 class ViewFactory extends MagicObject {
@@ -41,9 +43,9 @@ class ViewFactory extends MagicObject {
     protected $rootDirectory;
 
     /**
-     * @var EngineObject
+     * @var ITemplateCompiler|ITemplateExecutor|null
      */
-    protected $engine;
+    protected ITemplateCompiler|ITemplateExecutor|null $engine = null;
 
     protected string|File $layout = '';
 
@@ -83,6 +85,10 @@ class ViewFactory extends MagicObject {
             && is_array($this->configs['assets'])) {
             $this->registerAssetsMap($this->configs['assets']);
         }
+    }
+
+    public function config(string $name) {
+        return $this->configs[$name];
     }
 
     /**
@@ -127,18 +133,18 @@ class ViewFactory extends MagicObject {
     }
 
     /**
-     * @param EngineObject|string $engine
+     * @param ITemplateCompiler|ITemplateExecutor|string $engine
      * @return ViewFactory
      */
-    public function setEngine($engine) {
+    public function setEngine(ITemplateCompiler|ITemplateExecutor|string $engine) {
         $this->engine = is_string($engine) ? new $engine($this) : $engine;
         return $this;
     }
 
     /**
-     * @return EngineObject
+     * @return ITemplateCompiler|ITemplateExecutor|null
      */
-    public function getEngine() {
+    public function getEngine(): ITemplateCompiler|ITemplateExecutor|null {
         return $this->engine;
     }
 
@@ -188,7 +194,7 @@ class ViewFactory extends MagicObject {
      * @throws FileException
      * @throws \Exception
      */
-    public function make($file) {
+    protected function renderView(File|string $file) {
         if (!$file instanceof File && is_file($file)) {
             $file = new File($file);
         }
@@ -198,37 +204,58 @@ class ViewFactory extends MagicObject {
         if (!$file->exist()) {
             throw new FileException($file);
         }
-        if (!$this->engine instanceof EngineObject) {
-            return new View($this, $file);
+        if ($this->engine instanceof ITemplateEngine) {
+            /** IF IT HAS ENGINE*/
+            $cacheFile = $this->cache->getCacheFile($file->getFullName());
+            if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
+                $start = Time::millisecond();
+                $this->engine->compileFile($file, $cacheFile);
+                event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));
+            }
+            return new View($this, $file, $cacheFile);
         }
-        /** IF HAS ENGINE*/
-        $cacheFile = $this->cache->getCacheFile($file->getFullName());
-        if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
-            $start = Time::millisecond();
-            $this->engine->compile($file, $cacheFile);
-            event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));
+        if ($this->engine instanceof ITemplateCompiler) {
+            /** IF IT HAS ENGINE*/
+            $cacheFile = $this->cache->getCacheFile($file->getFullName());
+            if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
+                $start = Time::millisecond();
+                $cacheFile->write($this->engine->compile($file->read()));
+                event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));
+            }
+            return new View($this, $file, $cacheFile);
         }
-        return new View($this, $file, $cacheFile);
+        return new View($this, $file);
     }
 
     /**
      * GET HTML
      * @param string|File $file
      * @param array $data
-     * @param callable $callback
+     * @param callable|null $callback
      * @return string
      * @throws FileException
-     * @throws \Exception
      */
-    public function render(string|File $file, array $data = array(), callable $callback = null) {
-        $content = $this->setAttribute($data)
-            ->getView(empty($file) ? $this->defaultFile : $file)->render($callback);
+    public function render(string|File $file, array $data = [], ?callable $callback = null) {
+        $content = $this->renderJust(empty($file) ? $this->defaultFile : $file, $data, $callback);
         $layout = $this->findLayoutFile();
         if (empty($layout)) {
             return $content;
         }
-        return $this->getView($layout)
-            ->renderWithData(['content' => $content]);
+        $layoutData = $this->merge($data);
+        $layoutData['content'] = $content;
+        return $this->renderJust($layout, $layoutData);
+    }
+
+    protected function renderJust(string|File $file, array $data = [], ?callable $callback = null) {
+        if ($this->engine instanceof ITemplateExecutor) {
+            $content = $this->engine->execute((string)$file, $this->merge($data));
+            if (!empty($callback)) {
+                return call_user_func($callback, $callback);
+            }
+            return $content;
+        }
+        return $this->getView(empty($file) ? $this->defaultFile : $file)
+            ->renderWithData($data, $callback);
     }
 
     public function findLayoutFile() {
@@ -253,7 +280,7 @@ class ViewFactory extends MagicObject {
      */
     public function getView($file) {
         return $this->moveRegisterAssets()
-            ->make($file);
+            ->renderView($file);
     }
 
 

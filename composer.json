@@ -17,6 +17,9 @@
         "zodream/zodream": "dev-master",
         "zodream/helpers": "dev-master"
     },
+    "require-dev": {
+        "twig/twig": "^3.5.1"
+    },
     "autoload": {
         "psr-4": {
             "Zodream\\Template\\": "src/"

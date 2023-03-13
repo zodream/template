@@ -102,7 +102,7 @@ class ParserCompiler extends CompilerEngine {
      * @param bool $isBlock
      * @return $this
      */
-    public function registerFunc(string $tag, mixed $func = null, bool $isBlock = false) {
+    public function registerFunc(string $tag, mixed $func = null, bool $isBlock = false): ITemplateEngine {
         $this->funcList[$tag] = empty($func) ? $tag : $func;
         if ($isBlock) {
             $this->blockTags[] = $tag;
@@ -188,7 +188,7 @@ class ParserCompiler extends CompilerEngine {
         return preg_replace_callback($pattern, [$this, 'replaceCallback'], $content);
     }
 
-    public function compileString($arg) {
+    public function compile(string $arg): string {
         return $this->parse($arg);
     }
 
@@ -879,7 +879,7 @@ class ParserCompiler extends CompilerEngine {
         return false;
     }
 
-    protected function parseScriptRegister($content) {
+    protected function parseScriptRegister(string $content) {
         $splitIndex = strpos($content, ':');
         if ($splitIndex > 1) {
             $func = substr($content, 1, $splitIndex);
@@ -887,12 +887,12 @@ class ParserCompiler extends CompilerEngine {
                 $content = $this->invokeFunc($func, substr($content, $splitIndex + 1));
             }
         }
-        if (preg_match('/^.+\.js$/', $content, $match)) {
-            $this->addHeader(sprintf('$this->registerJsFile(\'%s\');', $content));
+        if (str_ends_with($content, '.js')) {
+            $this->addHeader(sprintf('$this->registerJsFile(\'@%s\');', $content));
             return null;
         }
-        if (preg_match('/^.+\.css$/', $content, $match)) {
-            $this->addHeader(sprintf('$this->registerCssFile(\'%s\');', $content));
+        if (str_ends_with($content, '.css')) {
+            $this->addHeader(sprintf('$this->registerCssFile(\'@%s\');', $content));
             return null;
         }
         return false;

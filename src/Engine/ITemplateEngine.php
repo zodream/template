@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template\Engine;
 
 /**
@@ -9,7 +10,7 @@ namespace Zodream\Template\Engine;
  */
 use Zodream\Disk\File;
 
-interface EngineObject {
+interface ITemplateEngine extends ITemplateCompiler {
     /**
      * COMPILER FILE TO CACHE FILE
      *
@@ -17,5 +18,5 @@ interface EngineObject {
      * @param File $cacheFile
      * @return bool
      */
-    public function compile(File $file, File $cacheFile);
+    public function compileFile(File $file, File $cacheFile): bool;
 }

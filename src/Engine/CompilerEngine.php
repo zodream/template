@@ -11,7 +11,7 @@ use SebastianBergmann\CodeCoverage\Report\PHP;
 use Zodream\Template\ViewFactory;
 use Zodream\Disk\File;
 
-abstract class CompilerEngine implements EngineObject {
+abstract class CompilerEngine implements ITemplateEngine {
     /**
      * @var ViewFactory
      */
@@ -75,16 +75,16 @@ abstract class CompilerEngine implements EngineObject {
      * @param File $cacheFile
      * @return bool
      */
-    public function compile(File $file, File $cacheFile) {
+    public function compileFile(File $file, File $cacheFile): bool {
         $this->file = $file;
-        $content = $this->compileString($file->read());
+        $content = $this->compile($file->read());
         return $cacheFile->write($this->compileHeaders().$content) !== false;
     }
 
     /**
      * COMPILE STRING
-     * @param string $arg
+     * @param string $value
      * @return string
      */
-    abstract public function compileString($arg);
+    abstract public function compile(string $value): string;
 }
