@@ -870,11 +870,11 @@ class ParserCompiler extends CompilerEngine {
         }
         // 直接输出
         if ($first === '=') {
-            return '<?='.substr($content, 1).'?>';
+            return sprintf('<?=%s?>', $this->parseVal(substr($content, 1)));
         }
         if ($first === '@') {
             //
-            return $this->parseScriptRegister(substr($content, 1));
+            return $this->parseScriptRegister($content);
         }
         return false;
     }
@@ -882,17 +882,17 @@ class ParserCompiler extends CompilerEngine {
     protected function parseScriptRegister(string $content) {
         $splitIndex = strpos($content, ':');
         if ($splitIndex > 1) {
-            $func = substr($content, 1, $splitIndex);
+            $func = substr($content, 1, $splitIndex - 1);
             if ($this->hasFunc($func)) {
                 $content = $this->invokeFunc($func, substr($content, $splitIndex + 1));
             }
         }
         if (str_ends_with($content, '.js')) {
-            $this->addHeader(sprintf('$this->registerJsFile(\'@%s\');', $content));
+            $this->addHeader(sprintf('$this->registerJsFile(\'%s\');', $content));
             return null;
         }
         if (str_ends_with($content, '.css')) {
-            $this->addHeader(sprintf('$this->registerCssFile(\'@%s\');', $content));
+            $this->addHeader(sprintf('$this->registerCssFile(\'%s\');', $content));
             return null;
         }
         return false;

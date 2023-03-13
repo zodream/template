@@ -77,8 +77,7 @@ trait RegisterAssets {
      * @return string
      * @throws Exception
      */
-    public function getAssetUri($file): string
-    {
+    public function getAssetUri($file): string {
         $file = $this->getAssetFromMaps($file);
         if (is_file($file)) {
             return (new AssetFile($file))->getUrl();
@@ -102,18 +101,18 @@ trait RegisterAssets {
      * @param bool $append
      * @return $this
      */
-    protected function moveRegisterAssets($append = true) {
+    protected function moveRegisterAssets(bool $append = true) {
         foreach ($this->currentRegisterAssets as $key => $item) {
             if (empty($item)) {
                 continue;
             }
-            $this->registerAssets[$key] = $this->_mergeAssets($this->registerAssets[$key], $item, $append);
+            $this->registerAssets[$key] = $this->mergeAssets($this->registerAssets[$key], $item, $append);
             $this->currentRegisterAssets[$key] = [];
         }
         return $this;
     }
 
-    private function _mergeAssets(array $base, array $args, $append) {
+    protected function mergeAssets(array $base, array $args, $append) {
         if (empty($base)) {
             return $args;
         }
@@ -205,7 +204,7 @@ trait RegisterAssets {
      * @param  string $name
      * @throws Exception
      */
-    public function start($name) {
+    public function start(string $name) {
         if ($name === 'content') {
             throw new Exception(
                 __('The section name "content" is reserved.')
@@ -234,7 +233,7 @@ trait RegisterAssets {
      * @param  string      $default Default section content
      * @return string|null
      */
-    public function section($name, $default = null) {
+    public function section(string $name, mixed $default = null) {
         if (!isset($this->sections[$name])) {
             return $default;
         }
@@ -266,7 +265,7 @@ trait RegisterAssets {
     /**
      * @return string
      */
-    public function renderFooter(): string {
+    protected function renderFooter(): string {
         $lines = [];
         if (!empty($this->registerAssets['jsFiles'][View::HTML_FOOT])) {
             $lines[] = implode(PHP_EOL, $this->registerAssets['jsFiles'][View::HTML_FOOT]);
@@ -288,7 +287,7 @@ trait RegisterAssets {
     /**
      * @return string
      */
-    public function renderHeader(): string {
+    protected function renderHeader(): string {
         $lines = [];
         if (!empty($this->registerAssets['metaTags'])) {
             $lines[] = implode(PHP_EOL, $this->registerAssets['metaTags']);

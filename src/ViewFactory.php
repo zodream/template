@@ -254,6 +254,7 @@ class ViewFactory extends MagicObject {
             }
             return $content;
         }
+        $this->setAttribute($data);
         return $this->getView(empty($file) ? $this->defaultFile : $file)
             ->renderWithData($data, $callback);
     }
