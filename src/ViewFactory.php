@@ -57,6 +57,12 @@ class ViewFactory extends MagicObject {
     protected $assetsDirectory;
 
     protected $defaultFile;
+
+    /**
+     * 模板是允许缓存
+     * @var bool
+     */
+    protected bool $templateCacheable = true;
     
     public function __construct() {
         $this->loadConfigs([
@@ -136,7 +142,10 @@ class ViewFactory extends MagicObject {
      * @param ITemplateCompiler|ITemplateExecutor|string $engine
      * @return ViewFactory
      */
-    public function setEngine(ITemplateCompiler|ITemplateExecutor|string $engine) {
+    public function setEngine(ITemplateCompiler|ITemplateExecutor|string $engine, ?bool $cacheable = null) {
+        if (is_bool($cacheable)) {
+            $this->templateCacheable = $cacheable;
+        }
         $this->engine = is_string($engine) ? new $engine($this) : $engine;
         return $this;
     }
@@ -207,7 +216,7 @@ class ViewFactory extends MagicObject {
         if ($this->engine instanceof ITemplateEngine) {
             /** IF IT HAS ENGINE*/
             $cacheFile = $this->cache->getCacheFile($file->getFullName());
-            if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
+            if (!$this->templateCacheable || !$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
                 $start = Time::millisecond();
                 $this->engine->compileFile($file, $cacheFile);
                 event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));
@@ -217,7 +226,7 @@ class ViewFactory extends MagicObject {
         if ($this->engine instanceof ITemplateCompiler) {
             /** IF IT HAS ENGINE*/
             $cacheFile = $this->cache->getCacheFile($file->getFullName());
-            if (!$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
+            if (!$this->templateCacheable || !$cacheFile->exist() || $cacheFile->modifyTime() < $file->modifyTime()) {
                 $start = Time::millisecond();
                 $cacheFile->write($this->engine->compile($file->read()));
                 event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));

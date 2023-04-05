@@ -78,6 +78,9 @@ trait RegisterAssets {
      * @throws Exception
      */
     public function getAssetUri($file): string {
+        if (is_string($file) && str_starts_with($file, 'data:')) {
+            return $file;
+        }
         $file = $this->getAssetFromMaps($file);
         if (is_file($file)) {
             return (new AssetFile($file))->getUrl();

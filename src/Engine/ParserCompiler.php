@@ -881,17 +881,22 @@ class ParserCompiler extends CompilerEngine {
 
     protected function parseScriptRegister(string $content) {
         $splitIndex = strpos($content, ':');
+        $oldContent = $content;
         if ($splitIndex > 1) {
             $func = substr($content, 1, $splitIndex - 1);
             if ($this->hasFunc($func)) {
-                $content = $this->invokeFunc($func, substr($content, $splitIndex + 1));
+                $oldContent = substr($content, $splitIndex + 1);
+                $content = $this->invokeFunc($func, $oldContent);
+            }
+            if (empty($content)) {
+                return null;
             }
         }
-        if (str_ends_with($content, '.js')) {
+        if (str_ends_with($oldContent, '.js')) {
             $this->addHeader(sprintf('$this->registerJsFile(\'%s\');', $content));
             return null;
         }
-        if (str_ends_with($content, '.css')) {
+        if (str_ends_with($oldContent, '.css')) {
             $this->addHeader(sprintf('$this->registerCssFile(\'%s\');', $content));
             return null;
         }
