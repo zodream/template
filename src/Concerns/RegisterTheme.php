@@ -1,44 +1,45 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template\Concerns;
 
-use Zodream\Template\Theme;
+use Zodream\Template\ITheme;
 
 trait RegisterTheme {
 
     /**
-     * @var Theme
+     * @var ITheme|null
      */
-    protected $theme;
+    protected ?ITheme $theme = null;
 
 
-    public function registerTheme($theme) {
+    public function registerTheme(string|ITheme $theme) {
         $this->theme = is_string($theme) ? new $theme($this) : $theme;
         return $this;
     }
 
     /**
-     * @return Theme
+     * @return ITheme
      */
-    public function getTheme() {
+    public function getTheme(): ITheme {
         return $this->theme;
     }
 
     /**
-     * @param $func
+     * @param string $func
      * @return bool
      */
-    public function canTheme($func) {
+    public function canTheme(string $func): bool {
         return $this->theme && method_exists($this->theme, $func);
     }
 
     /**
-     * @param $func
+     * @param string $func
      * @param array $vars
      * @return mixed
      */
-    public function invokeTheme($func, array $vars) {
+    public function invokeTheme(string $func, array $vars): mixed {
         if (!$this->theme) {
-            return;
+            return null;
         }
         return call_user_func_array([$this->theme, $func], $vars);
     }

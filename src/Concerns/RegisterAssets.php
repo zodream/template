@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template\Concerns;
 
 use Zodream\Helpers\Arr;
@@ -73,11 +74,11 @@ trait RegisterAssets {
     }
 
     /**
-     * @param $file
+     * @param mixed $file
      * @return string
      * @throws Exception
      */
-    public function getAssetUri($file): string {
+    public function getAssetUri(mixed $file): string {
         if (is_string($file) && str_starts_with($file, 'data:')) {
             return $file;
         }
@@ -115,7 +116,7 @@ trait RegisterAssets {
         return $this;
     }
 
-    protected function mergeAssets(array $base, array $args, $append) {
+    protected function mergeAssets(array $base, array $args, bool $append) {
         if (empty($base)) {
             return $args;
         }
@@ -243,13 +244,17 @@ trait RegisterAssets {
         return $this->sections[$name];
     }
 
-    public function header() {
-        $this->moveRegisterAssets(false);
+    public function header(bool $complete = true) {
+        if ($complete) {
+            $this->moveRegisterAssets(false);
+        }
         return $this->renderHeader();
     }
 
-    public function footer() {
-        $this->moveRegisterAssets(false);
+    public function footer(bool $complete = true) {
+        if ($complete) {
+            $this->moveRegisterAssets(false);
+        }
         return $this->renderFooter();
     }
 

@@ -25,10 +25,8 @@ use Zodream\Template\Events\ViewRendered;
  * @method ViewFactory getAssetFile($file)
  * @method ViewFactory get($key, $default = null)
  * @method ViewFactory set($key, $value = null)
- * @method string header()
- * @method string footer()
- * @method string renderFooter()
- * @method string renderHeader()
+ * @method string header($complete = true)
+ * @method string footer($complete = true)
  * @method ViewFactory start($name)
  * @method ViewFactory stop()
  * @method ViewFactory section($name, $default = null)
@@ -69,10 +67,10 @@ class View {
     /**
      * SET FILE
      * @param File|string $file
-     * @param File $sourceFile
+     * @param File|null $sourceFile
      * @return $this
      */
-    public function setFile($file, $sourceFile = null) {
+    public function setFile(mixed $file, ?File $sourceFile = null) {
         if (!$file instanceof File) {
             $file = new File($file);
         }
@@ -192,10 +190,10 @@ class View {
 
     /**
      * 输出是多久以前
-     * @param int $time
+     * @param int|string $time
      * @return string
      */
-    public function ago($time) {
+    public function ago(int|string $time) {
         if (is_string($time) && (str_contains($time, '-') || str_contains($time, ':'))) {
             return Time::ago(strtotime($time));
         }
@@ -206,11 +204,11 @@ class View {
      * 翻译 {}
      * @param string $message
      * @param array $param
-     * @param string $name
+     * @param string|null $name
      * @return mixed
-     * @throws \Exception
+     * @throws Exception
      */
-    public function t($message, $param = [], $name = null) {
+    public function t(string $message, array $param = [], ?string $name = null) {
         return trans($message, $param, $name);
     }
 
@@ -220,22 +218,22 @@ class View {
      * @param int $length
      * @return string
      */
-    public function text($html, $length = 0) {
-        return Html::text($html, $length);
+    public function text(mixed $html, int $length = 0) {
+        return Html::text((string)$html, $length);
     }
 
     /**
      * GET COMPLETE URL
      * @param null $file
-     * @param null $extra
+     * @param array|bool $extra
      * @param bool $encode
-     * @param null $secure
-     * @return string|Uri
+     * @param bool|null $secure
+     * @return string
      * @throws Exception
      */
-    public function url($file = null, $extra = null, bool $encode = true, $secure = null) {
+    public function url(mixed $file = null, array|bool $extra = [], bool $encode = true, ?bool $secure = null) {
         if (is_bool($extra)) {
-            list($extra, $encode) = [null, $extra];
+            list($extra, $encode) = [[], $extra];
         }
         return url()->to($file, $extra, $secure, $encode);
     }
@@ -246,16 +244,16 @@ class View {
      * @return string
      * @throws Exception
      */
-    public function asset($file) {
+    public function asset(mixed $file) {
         return $this->url($this->factory->getAssetUri($file));
     }
 
     /**
-     * @param $file
+     * @param mixed $file
      * @return AssetFile
      * @throws Exception
      */
-    public function assetFile($file) {
+    public function assetFile(mixed $file): AssetFile {
         return $this->factory->getAssetFile($file);
     }
 
@@ -264,7 +262,7 @@ class View {
      * @param string $name
      * @return File| string
      */
-    protected function getExtendFile($name) {
+    protected function getExtendFile(string $name) {
         if (str_starts_with($name, '@')) {
             return $this->factory->invokeTheme('getFile', [substr($name, 1)]);
         }
@@ -281,38 +279,47 @@ class View {
 
     /**
      * 加载其他文件
-     * @param $name
+     * @param array|string $name
      * @param array $data
      * @return $this
-     * @throws FileException
-     * @throws \Exception
      */
-    public function extend($name, array $data = []) {
+    public function extend(array|string $name, array $data = []) {
         foreach ((array)$name as $item) {
-            echo $this->factory->getView($this->getExtendFile($item))
-                ->renderWithData($data);
+            echo $this->renderPart((string)$item, $data);
         }
         return $this;
+    }
+
+    /**
+     * 获取渲染部分文件的内容
+     * @param string|File $name
+     * @param array $data
+     * @return string
+     * @throws FileException
+     */
+    public function renderPart(string|File $name, array $data = []): string {
+        return $this->factory->getView($name instanceof File ? $name : $this->getExtendFile($name))
+            ->renderWithData($data);
     }
 
     /**
      *
      * @param string $content
      * @param array $options
-     * @param null $key
+     * @param string|null $key
      * @return View
      */
-    public function registerMetaTag($content, array $options = array(), $key = null) {
+    public function registerMetaTag(string $content, array $options = array(), ?string $key = null) {
         $this->factory->registerMetaTag($content, $options, $key);
         return $this;
     }
 
-    public function registerLinkTag($url, array $options = array(), $key = null) {
+    public function registerLinkTag(mixed $url, array $options = array(), ?string $key = null) {
         $this->factory->registerLinkTag($url, $options, $key);
         return $this;
     }
 
-    public function registerCss($css, $key = null) {
+    public function registerCss(string $css, ?string $key = null) {
         $this->factory->registerCss($css, $key);
         return $this;
     }
@@ -322,7 +329,7 @@ class View {
         return $this;
     }
 
-    public function registerJs($js, $position = self::HTML_FOOT, $key = null) {
+    public function registerJs(string $js, string $position = self::HTML_FOOT, ?string $key = null) {
         $this->factory->registerJs($js, $position, $key);
         return $this;
     }
@@ -348,7 +355,7 @@ class View {
         $this->factory->deleteAttribute($name);
     }
 
-    public function __call($name, $arguments) {
+    public function __call($name, array $arguments = []) {
         if (method_exists($this->factory, $name)) {
             $res = call_user_func_array([$this->factory, $name], $arguments);
             return $res && $res instanceof ViewFactory ? $this : $res;
@@ -357,7 +364,7 @@ class View {
             return $this->factory->invokeTheme($name, $arguments);
         }
         if (!defined('DEBUG') || !DEBUG) {
-            return;
+            return null;
         }
         throw new \BadMethodCallException(
             __(

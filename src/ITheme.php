@@ -1,20 +1,21 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template;
 
 
 use Zodream\Disk\Directory;
 use Zodream\Disk\File;
 
-abstract class Theme {
+interface ITheme {
 
     /**
      * @return Directory
      */
-    abstract public function getRoot();
+    public function getRoot(): Directory;
 
     /**
-     * @param $name
+     * @param string $name
      * @return File
      */
-    abstract public function getFile($name);
+    public function getFile(string $name): File;
 }

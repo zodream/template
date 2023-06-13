@@ -177,11 +177,11 @@ class ViewFactory extends MagicObject {
 
     /**
      * 获取完整的路径
-     * @param $file
+     * @param string $file
      * @return File
      * @throws FileException
      */
-    public function getCompleteFile($file) {
+    public function getCompleteFile(string $file) {
         $first = substr($file, 0, 1);
         if ($first !== '@') {
             return $this->directory->childFile($file);
@@ -242,7 +242,6 @@ class ViewFactory extends MagicObject {
      * @param array $data
      * @param callable|null $callback
      * @return string
-     * @throws FileException
      */
     public function render(string|File $file, array $data = [], ?callable $callback = null) {
         $content = $this->renderJust(empty($file) ? $this->defaultFile : $file, $data, $callback);

@@ -7,15 +7,15 @@ namespace Zodream\Template\Concerns;
  */
 trait ConditionTrait {
 
-	private $_switchCondition = null;
-	private $_switchValue;
+	private mixed $_switchCondition = null;
+	private mixed $_switchValue;
 
 	/**
 	 * 拓展switch
 	 * @param string $condition 条件或要输出的值
 	 * @param string $value 要输出的值
 	 */
-	public function swi($condition, $value = null) {
+	public function swi(mixed $condition, mixed $value = null) {
 		if (null == $value) {
 			$this->_switchCondition = null;
 			$this->_switchValue = $condition;
@@ -31,7 +31,7 @@ trait ConditionTrait {
 	 * @param string $value 可以更改输出的值，不必先用 $this->swi
 	 * @return null|string
 	 */
-	public function cas($condition, $value = null) {
+	public function cas(mixed $condition, mixed $value = null) {
 		if (!is_null($value)) {
 			$this->_switchValue = $value;
 		}
@@ -48,7 +48,7 @@ trait ConditionTrait {
 	 * @param string|integer|array $key
 	 * @return mixed|null
 	 */
-	public function tag($name, $key) {
+	public function tag(string $name, mixed $key) {
 		$args = array();
 		if (!is_array($key)) {
 			for ($i = 1; $i < func_num_args(); $i+=2) {
