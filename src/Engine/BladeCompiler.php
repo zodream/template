@@ -89,6 +89,10 @@ class BladeCompiler extends CompilerEngine {
         return $this;
     }
 
+    public function disallowFunc(string $func): ITemplateCompiler {
+        return $this;
+    }
+
     /**
      * Compile the given Blade template contents.
      *

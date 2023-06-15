@@ -81,6 +81,8 @@ class ParserCompiler extends CompilerEngine {
         'footer' => '$this->footer',
     ];
 
+    protected array $disallowList = [];
+
     protected array $blockTags = [];
 
     /**
@@ -110,12 +112,19 @@ class ParserCompiler extends CompilerEngine {
         return $this;
     }
 
+    public function disallowFunc(string $func): ITemplateCompiler {
+        if (!in_array($func, $this->disallowList)) {
+            $this->disallowList[] = $func;
+        }
+        return $this;
+    }
+
     /**
      * 判断是否有方法
      * @param string $tag
      * @return bool
      */
-    public function hasFunc(string $tag) {
+    public function hasFunc(string $tag): bool {
         return array_key_exists($tag, $this->funcList);
     }
 
@@ -249,6 +258,15 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('<?=%s?>', $this->parseVal($content));
         }
         return $match[0];
+    }
+
+    public function parseFunc(string $content): string {
+
+        return '';
+    }
+
+    public function parseValue(string $content): string {
+        return '';
     }
 
     protected function parseThis(string $content) {
@@ -496,10 +514,10 @@ class ParserCompiler extends CompilerEngine {
      * @return bool|string
      */
     protected function parseNote(string $content) {
-        if ((substr($content, 0, 1) == '*'
-                && substr($content, -1) == '*') ||
-            (substr($content, 0, 2) == '//'
-                && substr($content, -2, 2) == '//')) {
+        if ((str_starts_with($content, '*')
+                && str_ends_with($content, '*')) ||
+            (str_starts_with($content, '//')
+                && str_ends_with($content, '//'))) {
             return '<?php /*'.$content.'*/ ?>';
         }
         return false;
@@ -801,7 +819,7 @@ class ParserCompiler extends CompilerEngine {
      */
     protected function hasTag($str, $search) {
         foreach ((array)$search as $tag) {
-            if (strpos($str, $tag) !== false) {
+            if (str_contains($str, $tag)) {
                 return true;
             }
         }
@@ -956,10 +974,10 @@ class ParserCompiler extends CompilerEngine {
 
     /**
      * 转化语句块
-     * @param $content
-     * @return string
+     * @param string $content
+     * @return string|null
      */
-    protected function parseBlock($content) {
+    protected function parseBlock(string $content): ?string {
         if ($content == '' || $content == 'php') {
             $this->blockTag = 'php';
             return '<?php ';
