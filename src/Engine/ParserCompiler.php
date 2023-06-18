@@ -4,6 +4,7 @@ namespace Zodream\Template\Engine;
 
 use Zodream\Disk\File;
 use Zodream\Helpers\Str;
+use Zodream\Template\CharReader;
 
 /**
 {>}         <?php
@@ -62,8 +63,6 @@ class ParserCompiler extends CompilerEngine {
 
     protected string $endTag = '}';
 
-    protected string $salePattern = '/\<\?(.|\r\n|\s)*\?\>/U';
-
     protected string|bool $blockTag = false; // 代码块开始符
 
     protected array $forTags = [];
@@ -79,11 +78,20 @@ class ParserCompiler extends CompilerEngine {
     protected array $funcList = [
         'header' => '$this->header',
         'footer' => '$this->footer',
+        'url' => '$this->url',
+        'js' => '$this->registerJsFile',
+        'css' => '$this->registerCssFile',
+        'tpl' => '$this->extend',
+        'request' => 'request',
+        'isset' => 'isset',
+        'empty' => 'empty'
     ];
 
-    protected array $disallowList = [];
-
     protected array $blockTags = [];
+
+    protected string $currentToken = '';
+
+    protected bool $moveNextStop = false;
 
     /**
      * 设置提取标签
@@ -100,7 +108,7 @@ class ParserCompiler extends CompilerEngine {
     /**
      * 注册方法
      * @param string $tag
-     * @param $func
+     * @param mixed $func
      * @param bool $isBlock
      * @return $this
      */
@@ -108,13 +116,6 @@ class ParserCompiler extends CompilerEngine {
         $this->funcList[$tag] = empty($func) ? $tag : $func;
         if ($isBlock) {
             $this->blockTags[] = $tag;
-        }
-        return $this;
-    }
-
-    public function disallowFunc(string $func): ITemplateCompiler {
-        if (!in_array($func, $this->disallowList)) {
-            $this->disallowList[] = $func;
         }
         return $this;
     }
@@ -134,238 +135,697 @@ class ParserCompiler extends CompilerEngine {
      * @param string $args
      * @return bool|string
      */
-    public function invokeFunc(string $tag, string $args) {
-        if (!$this->hasFunc($tag)) {
-            return false;
+    public function invokeFunc(string $tag, string $args): string|false {
+        if (str_starts_with($tag, '$this->')) {
+            if (strpos($tag, '$', 7) !== false) {
+                return 'null';
+            }
+            return sprintf('%s(%s)', $tag, $args);
+        } else if ($tag === '$' || !$this->hasFunc($tag)) {
+            return 'null';
         }
-        return $this->invokeFuncParse($this->funcList[$tag], $this->parseFuncParameters($args));
+        if (!is_string($this->funcList[$tag]) && is_callable($this->funcList[$tag])) {
+            return (string)call_user_func($this->funcList[$tag], $args);
+        }
+        return sprintf('%s(%s)',
+            $this->funcList[$tag], $args);
     }
 
-    public function parseFuncParameters(string $args) {
-        if (preg_match_all('/(\w+?)=((\[.+?])|(".+?")|(\'.+?\')|(\S+))/', $args, $matches, PREG_SET_ORDER)) {
-            $args = sprintf('[%s]', implode(',', array_map(function ($item) {
-                $first = substr($item[2], 0, 1);
-                $value = $item[2];
-                if (in_array($first, ['[', '"', '\''])) {
-                } elseif ($first === '$') {
-                    $value = $this->getRealVal($item[2]);
-                } elseif (is_numeric($value)) {
-                } else {
-                    $value = sprintf('\'%s\'', $item[2]);
-                }
-                return sprintf('\'%s\' => %s', $item[1], $value);
-            }, $matches)));
-        } elseif ($args === ''
-            ||
-            preg_match('/^(([A-Z_]+)|(\d+)|(\'.+\')|(".+"))$/', $args, $match)) {
-        } else {
-            $args = implode(',', array_map(function ($item) {
-                return $this->getRealVal($item);
-            }, explode(',', $args)));
-        }
-        return $args;
-    }
-
-    protected function invokeFuncParse(mixed $func, string $args) {
-        if (is_string($func)) {
-            return $this->setValueToFunc($func, $args);
-        }
-        if (is_callable($func)) {
-            return call_user_func($func, $args);
-        }
-        return false;
-    }
-
-    protected function setValueToFunc(string $func, string $args) {
-        if (!str_contains($func, '%')) {
-            return $this->echo('%s(%s)', $func, $args);
-        }
-        if (substr_count($func, '%') == 1) {
-            return sprintf($func, $args);
-        }
-        return sprintf($func, ...explode(',', $args));
-    }
 
     public function parseFile(File $file) {
         return $this->parse($file->read());
     }
 
-    public function parse(string $content) {
+
+
+    public function compile(string $value): string {
+        return $this->parse($value);
+    }
+
+    public function parse(string|CharReader $content): string {
         $this->initHeaders();
-        $content = preg_replace($this->salePattern, '', $content);
-        $pattern = sprintf('/%s[ 　]*(.+?)[ 　]*%s/i', $this->beginTag, $this->endTag);
-        return preg_replace_callback($pattern, [$this, 'replaceCallback'], $content);
-    }
-
-    public function compile(string $arg): string {
-        return $this->parse($arg);
-    }
-
-    protected function replaceCallback(array $match) {
-        $content = $match[1];
-        // 判断文本快结束符
-        if ($content == '/>' && $this->blockTag !== false) {
-            return $this->parseEndBlock();
+        $reader = $content instanceof CharReader ? $content : new CharReader($content);
+        while ($reader->canNext()) {
+            $res = $reader->jumpTo('<!--', '<?', $this->beginTag);
+            if ($res < 0) {
+                break;
+            }
+            switch ($res) {
+                case 0:
+                    $this->parseHtmlComment($reader);
+                    break;
+                case 2:
+                    $this->parseTemplate($reader);
+                    break;
+                case 1:
+                    $this->parsePhpScript($reader);
+                    break;
+                default:
+                    break;
+            }
         }
-        // 判断是否处在文本块中
-        if (empty($content) || $this->blockTag !== false) {
-            return $match[0];
-        }
-        // 转化引入文件
-        if (false !== ($line = $this->parseInclude($content))) {
-            return $line;
-        }
-        // 转化注释
-        if (false !== ($line = $this->parseNote($content))) {
-            return $line;
-        }
-        // 转化字符串标签
-        if (false !== ($line = $this->parseTag($content))) {
-            return $line;
-        }
-        // 根据第一个字符转化
-        if (false !== ($line = $this->parseFirstTag($content))) {
-            return $line;
-        }
-        // 根据 : 转化
-        if (strpos($content, ':') > 0
-            && false !== ($line = $this->parseBlockTag($content))) {
-            return $line;
-        }
-        // 转化 ?: 表达式
-        if (false !== ($line = $this->parseLambda($content))) {
-            return $line;
-        }
-        // 转化 this.
-        if (false !== ($line = $this->parseThis($content))) {
-            return $line;
-        }
-        // 转化赋值语句
-        if (false !== ($line = $this->parseAssign($content))) {
-            return $line;
-        }
-        // 转化设置变量
-        if ($this->hasOrderTag($content, ['$', '='])) {
-            return '<?php '.$this->parsePhp($content).';?>';
-        }
-        // 转化输出默认值
-        if (preg_match('/^(\$[^\s,]+?),(\d+|\$.+|".+"|\'.+\')$/i', $content, $args)) {
-            $args[1] = $this->parseVal($args[1]);
-            return sprintf('<?=isset(%s) ? %s : %s?>', $args[1], $args[1], $args[2]);
-        }
-        // 转化输出值
-        if (preg_match('/^(\$|this.)[_\w\.-\>\[\]\|\$]+$/i', $content)) {
-            return sprintf('<?=%s?>', $this->parseVal($content));
-        }
-        return $match[0];
+        return $reader->__toString();
     }
 
     public function parseFunc(string $content): string {
-
-        return '';
+        $reader = new CharReader($content);
+        return $this->parseCode($reader, $reader->length())[0];
     }
 
     public function parseValue(string $content): string {
-        return '';
-    }
-
-    protected function parseThis(string $content) {
-        if (!str_starts_with($content, 'this.')) {
-            return false;
-        }
-        if (!str_contains($content, '=')) {
-            return false;
-        }
-        list($tag, $val) = explode('=', substr($content, 5));
-        return sprintf('<?php $this->%s = %s;?>', $tag, $this->getRealVal($val));
-    }
-
-    protected function arrayToLink(array $args, $format) {
-        return implode('', array_map(function($item) use ($format) {
-            return sprintf($format, $this->getRealVal($item));
-        }, $args));
+        $reader = new CharReader($content);
+        return $this->parseInlineCode($reader, $reader->length());
     }
 
     /**
-     * 转化为方法的参数
-     * @param string $content 'item=$item 1 map=$this.a'
-     * @return string '['item'=>$item], 1, ['map'=>$this.a]'
+     * 删除html的注释
+     * @param CharReader $reader
+     * @return void
      */
-    protected function parseParameters(string $content): string {
-        $items = [];
-        $inArr = false;
-        foreach (explode(' ', $content) as $block) {
-            if (empty($block)) {
+    protected function parseHtmlComment(CharReader $reader): void {
+        $i = $reader->indexOf('-->');
+        if ($i < 0) {
+            $reader->seekOffset(3);
+            return;
+        }
+        $reader->maker();
+        $reader->seek($i + 3);
+        $reader->replace();
+    }
+
+    /**
+     * 不允许直接写php脚本
+     * @param CharReader $reader
+     * @return void
+     */
+    protected function parsePhpScript(CharReader $reader): void {
+        $i = $reader->indexOf('?>');
+        if ($i < 0) {
+            $i = $reader->position();
+        }
+        $reader->maker();
+        $reader->seek($i + 2);
+        $reader->replace();
+    }
+
+    protected function parseTemplate(CharReader $reader): void {
+        if ($reader->nextIs('/>') >= 0) {
+            $reader->maker();
+            $reader->replace($this->parseEndCodeBlock(), $reader->indexOf($this->endTag) + 1);
+            return;
+        }
+        if ($this->blockTag !== false) {
+            $reader->seekOffset(strlen($this->beginTag));
+            return;
+        }
+        list($i, $tag) = $reader->minIndex("\r", "\n", $this->endTag);
+        if ($i < 0) {
+            $reader->seekOffset(strlen($this->beginTag));
+            return;
+        }
+        if ($tag < 2) {
+            $reader->seek($i);
+            return;
+        }
+        list($res, $isEcho) = $this->parseCode($reader, $i);
+        if ($reader->position() > $i + strlen($this->beginTag) + strlen($this->endTag)) {
+            $i = $reader->position();
+        }
+        $reader->replace($isEcho ? $this->formatEcho($res) :
+            $this->formatBlock($res), $i + 1);
+    }
+
+    protected function parseComment(CharReader $reader, int $max): string|false {
+        $i = $reader->nextIs('/', '*');
+        if ($i < 0) {
+            return false;
+        }
+        switch ($i) {
+            case 1:
+                $j = $reader->indexOf('*/');
+                if ($j < 0 || $j > $max) {
+                    $reader->seek($max);
+                } else {
+                    $reader->seek($j + 2);
+                }
+                return '';
+            default:
+                $i = $reader->indexOf("\r", 0, $max);
+                if ($i < 0) {
+                    $i = $reader->indexOf("\n", 0, $max);
+                }
+                if ($i < 0) {
+                    $reader->seek($max);
+                } else {
+                    $reader->seek($i);
+                }
+                return '';
+        }
+    }
+
+    /**
+     *
+     * @param CharReader $reader
+     * @param int $max
+     * @return array{string, bool}
+     */
+    public function parseCode(CharReader $reader, int $max): array {
+        $reader->maker();
+        $code = $reader->next();
+        switch ($code) {
+            case '=':
+                $reader->seekOffset(1);
+                $reader->back();
+                return [$this->parseInlineCode($reader, $max), true];
+            case '>':
+                $tags = ['text', 'css', 'js'];
+                $j = $reader->nextIs(...$tags);
+                if ($j >= 0) {
+                    $reader->seekOffset(strlen($tags[$j]) + 1);
+                    return [call_user_func([$this,
+                        sprintf('parse%sBlockCall', Str::studly($tags[$j]))], $reader, $max), false];
+                } else if ($reader->isWhitespaceUntil($max - 1)) {
+                    $reader->seekOffset(1);
+                    return [$this->parseBlockCode($reader, $max), false];
+                } else {
+                    $reader->seekOffset(1);
+                    return [$this->parseInlineCode($reader, $max), false];
+                }
+            case '|':
+                $reader->seekOffset(1);
+                return [$this->parseIfCall($reader, $max), false];
+            case '+':
+                if ($reader->isWhitespaceUntil($max - 1)) {
+                    return ['else:', false];
+                } else {
+                    $reader->seekOffset(1);
+                    return [$this->parseElseifCall($reader, $max), false];
+                }
+            case '-':
+                return ['endif;', false];
+            case '@':
+                // $reader->seekOffset(1);
+                return [$this->parseFileCall($reader, $max), false];
+            case '~':
+                $reader->seekOffset(1);
+                return [$this->parseForCall($reader, $max), false];
+            case '/':
+                if ($reader->nextIs('>') >= 0) {
+                    return [$this->parseEndCodeBlock(), false];
+                } elseif ($reader->nextIs('~') >= 0) {
+                    return [$this->parseEndFor(), false];
+                } else {
+                    $reader->seekOffset(1);
+                    return [$this->parseEndBlock($reader, $max), false];
+                }
+        }
+        $reader->jumpWhitespace();
+        foreach ([
+            'js',
+            'css',
+            'tpl',
+            'for',
+            'if',
+             'elseif',
+             'else',
+            'default',
+            'page' => true,
+            'layout',
+            'break',
+            'continue',
+            'elseif',
+            'switch',
+            'case',
+            'url' => true,
+            'request' => true
+                 ] as $func => $isEcho) {
+            if (!is_bool($isEcho)) {
+                list($func, $isEcho) = [$isEcho, false];
+            }
+            if ($reader->is($func)) {
+                $reader->seekOffset(strlen($func));
+                return [call_user_func([$this, sprintf('parse%sCall', Str::studly($func))],
+                    $reader, $max), $isEcho];
+            }
+        }
+        $reader->back();
+        $isEcho = true;
+        $data = [];
+        while ($reader->canNextUntil($max)) {
+            $line = $this->parseInlineCode($reader, $max);
+            if ($line === '') {
                 continue;
             }
-            if (str_contains($block, '=')) {
-                list($k, $v) = explode('=', $block);
-                if ($inArr) {
-                    $items[] = sprintf('%s=>%s', $this->getRealVal($k), $this->getRealVal($v));
-                } else {
-                    $inArr = true;
-                    $items[] = sprintf('[%s=>%s', $this->getRealVal($k), $this->getRealVal($v));
+            if (str_contains($line, '=')) {
+                $isEcho = false;
+            }
+            $data[] = $line;
+        }
+        return [implode('', $data), $isEcho];
+    }
+
+    protected function parseBlockCode(CharReader $reader, int $max): string {
+        $reader->seek($max);
+        $endTag = sprintf('%s/>%s', $this->beginTag, $this->endTag);
+        $max = $reader->indexOf($endTag);
+        if ($max < 0) {
+            return '';
+        }
+        $data = [];
+        while ($reader->canNextUntil($max)) {
+            $code = $this->parseInlineCode($reader, $max);
+            if (empty($code)) {
+                continue;
+            }
+            $data[] = $code. ';';
+        }
+        $reader->seek($max + strlen($endTag));
+        return implode(PHP_EOL, $data);
+    }
+
+    public function parseInlineCode(CharReader $reader, int $max): string
+    {
+        $data = [];
+        $block = [];
+        while ($reader->canNextUntil($max)) {
+            $token = $this->nextToken($reader, $max);
+            if ($token === '') {
+                continue;
+            }
+            if ($token === PHP_EOL || $token === ';') {
+                break;
+            }
+            if ($token === '[') {
+                if (!empty($block)) {
+                    $data[] = implode('', $block);
+                }
+                $data[] = $this->parseArray($reader, $token, $max);
+                $block = [];
+                continue;
+            }
+            if ($token === '.') {
+                if (empty($block)) {
+                    $block = [$this->parseThis($reader, $max)];
+                    continue;
+                }
+                if (count($block) === 1) {
+                    if ($block[0] === 'this' || $block[0] === '$this') {
+                        $block = [$this->parseThis($reader, $max)];
+                    } elseif ($this->isArrayOrCall($reader, $max)) {
+                        $block = [$this->parseCallQuery($reader, $max, $block[0])];
+                    } else {
+                        $block = [$this->parseArrayQuery($reader, $token, $max, $block[0])];
+                    }
+                    continue;
+                }
+            }
+            if ($this->isFuncToken($token)) {
+                // TODO 方法
+                $func = implode('', $block);
+                $block = [];
+                $data[] = $this->parseInvokeFunc($reader, $max, $func, $token);
+                break;
+            }
+            if ($token === ' ') {
+                if (!empty($block)) {
+                    $data[] = implode('', $block);
+                    $block = [];
                 }
                 continue;
             }
-            if ($inArr) {
-                $items[] = ']';
+            if ($this->isCombinationSymbol($token[0])) {
+                if (!empty($block)) {
+                    $data[] = implode('', $block);
+                    $block = [];
+                }
+                $data[] = $token;
+                continue;
             }
-            $items[] = $this->getRealVal($block);
-            $inArr = false;
+            $block[] = $token;
         }
-        if ($inArr) {
-            $items[] = ']';
+        if (!empty($block)) {
+            $data[] = implode('', $block);
         }
-        return implode(',', $items);
+        return implode(' ', $data);
     }
 
     /**
-     * 引入js,css 或加载文件
-     * @param string $content
-     * @return bool|null|string
-     */
-    protected function parseInclude(string $content) {
-        if (!preg_match('/^(link|script|js|css|php|tpl)\s+(src|href|file)=[\'"]?([^"\'\s]+)[\'"]?/i', $content, $match)) {
-            return false;
-        }
-        $match[1] = strtolower($match[1]);
-        $files = explode(',', $match[3]);
-        if ($match[1] == 'link' || $match[1] == 'css') {
-            $this->addHeader(sprintf('$this%s;',
-                $this->arrayToLink($files, '->registerCssFile(%s)')));
-            return null;
-        }
-        if ($match[1] == 'js' || $match[1] == 'script') {
-            $this->addHeader(sprintf('$this%s;',
-                $this->arrayToLink($files, '->registerJsFile(%s)')));
-            return null;
-        }
-        $line = '';
-        foreach ($files as $file) {
-            if ($match[1] == 'php') {
-                $line .= sprintf('<?php include \'%s\';?>', $file);
-                continue;
-            }
-            if ($match[1] == 'tpl') {
-                $line .= sprintf('<?php $this->extend(\'%s\', %s);?>', $file, $this->parseParameters(substr($content, strlen($match[0]))));
-                continue;
-            }
-            return false;
-        }
-        return $line;
-    }
-
-    /**
-     * 但值进行转化，不包括通过 . 对数组读取
-     * @param string $val
+     * 结束代码块
      * @return string
      */
-    protected function getRealVal(string $val) {
+    protected function parseEndCodeBlock(): string {
+        list($tag, $this->blockTag) = [$this->blockTag, false];
+        if ($tag == 'php' || $tag === '') {
+            return '?>';
+        }
+        if ($tag == 'js' || $tag == 'css') {
+            return sprintf(PHP_EOL.'%s;'.PHP_EOL.' $this->register%s($%s_%s);?>',
+                strtoupper($tag), ucfirst($tag), $tag,
+                $this->tplHash);
+        }
+//        if ($tag == 'text') {
+//            return '';
+//        }
+        return '';
+    }
+
+    protected function parseInvokeFunc(CharReader $reader, int $max, string $func, string $tag = ':'): string {
+        $method = sprintf('parse%sCall', Str::studly($func));
+        if (method_exists($this, $method)) {
+            return call_user_func([$this, $method], $reader, $max);
+        }
+        $parameters = $this->parseCallCode($reader, $tag, $max);
+        return $this->invokeFunc($func, $parameters);
+    }
+
+    protected function isFuncToken(string $code): bool {
+        return match ($code) {
+            ':', '(' => true,
+            default => false,
+        };
+    }
+
+    /**
+     * 转化方法调用的
+     * @param CharReader $reader
+     * @param string $tag 可以是: 搭配,或空格分隔 或 ( 只能是,分隔
+     * @param int $max
+     * @param string $link 连接符
+     * @return string
+     */
+    protected function parseCallCode(CharReader $reader, string $tag, int $max, string $link = ','): string {
+        $data = [];
+        while ($reader->canNextUntil($max)) {
+            $token = $this->nextScope($reader, $max, ')');
+            if ($tag === '(' && $token === ')') {
+                break;
+            }
+            if ($token === ';') {
+                $reader->back();
+                break;
+            }
+            if ($token === ',') {
+                continue;
+            }
+            if ($token === '->') {
+                $last = array_pop($data);
+                $data[] = sprintf('%s->%s',
+                    $last,
+                    $this->nextToken($reader, $max));
+                continue;
+            }
+            if ($token === '=>') {
+                $last = array_pop($data);
+                $data[] = $this->parseArray($reader, '[', $max, sprintf('%s => %s',
+                    $last,
+                    $this->nextScope($reader, $max, ']')));
+                continue;
+            }
+            $data[] = $token;
+        }
+        return implode($link, $data);
+    }
+
+    protected function parseToken(string $token): string {
+        return '';
+    }
+
+    /**
+     * 获取下一个分词
+     * @param CharReader $reader
+     * @param int $max
+     * @return string
+     */
+    public function nextToken(CharReader $reader, int $max): string {
+        if ($this->moveNextStop) {
+            $this->moveNextStop = false;
+            return $this->currentToken;
+        }
+        $reader->jumpWhitespace();
+        $i = $reader->position() + 1;
+        while ($reader->canNextUntil($max)) {
+            $code = $reader->next();
+            if ($code === '') {
+                break;
+            }
+            $isSymbol = $this->isCombinationSymbol($code);
+            if (!$this->isWhitespace($code) && !$isSymbol && !$this->isBracket($code)) {
+                continue;
+            }
+            if ($reader->position() - $i > 0) {
+                $reader->back();
+                break;
+            }
+            if ($this->isOperatorSymbol($code)) {
+                while ($reader->canNextUntil($max)) {
+                    $code = $reader->next();
+                    if (!$this->isOperatorSymbol($code)) {
+                        $reader->back();
+                        break;
+                    }
+                }
+                break;
+            }
+            if ($code === "\r") {
+                if ($reader->nextIs("\n") >= 0) {
+                    $reader->next();
+                }
+                return $this->currentToken = PHP_EOL;
+            }
+            if ($code === "\n") {
+                return $this->currentToken = PHP_EOL;
+            }
+            if ($code === '/') {
+                $res = $this->parseComment($reader, $max);
+                return $this->currentToken = $res === false ? $code : $res;
+            }
+//            if ($code === ':' || $code === '(') {
+//                // TODO 方法
+//                $func = $reader->substr($i, $reader->position());
+//                $parameters = $this->parseCallCode($reader, $code, $max);
+//                return $this->invokeFunc($func, $parameters);
+//            }
+//            if ($code === '.' || $code === '[') {
+//                // TODO 数组
+//            }
+            if ($code === '\'' || $code === '"') {
+                // TODO 字符串
+                $reader->seekOffset(1);
+                return $this->currentToken = $this->parseString($reader, $code, $max);
+            }
+            return $this->currentToken = $code;
+        }
+        return $this->currentToken = $reader->substr($i, $reader->position() + 1);
+    }
+
+    /**
+     * 把一些分词进行合并，例如 数组， 取数组的
+     * @param CharReader $reader
+     * @param int $max
+     * @return string
+     */
+    public function nextScope(CharReader $reader, int $max, string $endTag): string {
+        $token = $this->nextToken($reader, $max);
+        if ($token === '' || $this->isWhitespace($token) || $this->isCombinationSymbol($token[0])) {
+            return $token;
+        }
+        if ($token === '[') {
+            return $this->parseArray($reader, $token, $max);
+        }
+        if ($this->isBracket($token)) {
+            return $token;
+        }
+        $first = $token[0];
+        if ($first === '\'' || $first === '"') {
+            return $token;
+        }
+        if ($first === '$') {
+            $next = $this->nextToken($reader, $max);
+            if ($next !== '.' && $next !== '[') {
+                $this->moveNextStop = true;
+                return $token;
+            }
+            if ($next === '.' && $this->isArrayOrCall($reader, $max)) {
+                return $this->parseCallQuery($reader, $max, $token);
+            }
+            return $this->parseArrayQuery($reader, $next, $max, $token, true);
+        }
+        $i = $reader->nextIs(':', '(');
+        if ($i >= 0) {
+            $reader->seekOffset(1);
+            return $this->parseInvokeFunc($reader, $max, $token, $i > 0 ? '(' : ':');
+        }
+        return $this->parseWordToValue($token);
+    }
+
+    /**
+     * 判断 . 是数组查询还是方法调用
+     * @param CharReader $reader
+     * @param int $max
+     * @return bool true 为方法调用
+     */
+    protected function isArrayOrCall(CharReader $reader, int $max): bool {
+        list($i, $j) = $reader->minIndex(':', ' ', ',');
+        return $j === 0 && $i < $max;
+    }
+
+    protected function parseCallQuery(CharReader $reader, int $max, string $begin) {
+        $data = [$begin];
+        while ($reader->canNextUntil($max)) {
+            $token = $this->nextToken($reader, $max);
+            if ($token === ':') {
+                break;
+            }
+            if ($token === '.') {
+                continue;
+            }
+            $data[] = $token;
+        }
+        return sprintf('%s(%s)', implode('->', $data), $this->parseCallCode($reader, ':', $max));
+    }
+
+    /**
+     * 是否是符号
+     * @param string $code
+     * @return bool
+     */
+    protected function isCombinationSymbol(string $code): bool
+    {
+        if ($this->isOperatorSymbol($code)) {
+            return true;
+        }
+        return match ($code) {
+            ':', '.', ';', ',', '\'', '"' => true,
+           default => false,
+        };
+    }
+
+    /**
+     * 是否是运算符
+     * @param string $code
+     * @return bool
+     */
+    protected function isOperatorSymbol(string $code): bool {
+        return match ($code) {
+            '!', '&', '=', '%', '*', '+', '/', '-', '<', '>', '?', '^', '~' => true,
+            default => false,
+        };
+    }
+
+    protected function isBracket(string $code): bool {
+        return match ($code) {
+            '[', ']', '{', '}', '(', ')' => true,
+            default => false,
+        };
+    }
+
+    protected function isWhitespace(string $code): bool
+    {
+        return match ($code) {
+            ' ', "\n", "\r" => true,
+            default => false,
+        };
+    }
+
+    protected function parseThis(CharReader $reader, int $max) {
+        if ($reader->is('$')) {
+            return '';
+        }
+        $reader->jumpWhitespace();
+        return '$this->';
+    }
+
+    protected function parseArray(CharReader $reader, string $tag, int $max, string $first = ''): string {
+        $data = [];
+        if ($first !== '') {
+            $data[] = $first;
+        }
+        $endTag = $tag === '(' ? ')' : ']';
+        while ($reader->canNextUntil($max)) {
+            $token = $this->nextScope($reader, $max, $endTag);
+            if ($token === $endTag) {
+                break;
+            }
+            if ($token === '' || $token === ' ') {
+                continue;
+            }
+            if ($token === ';') {
+                $reader->back();
+                break;
+            }
+            if ($token === ',') {
+                continue;
+            }
+            if ($token === '=>') {
+                $last = count($data)-1;
+                $data[$last] = sprintf('%s => %s', $data[$last],
+                    $this->nextScope($reader, $max, $endTag));
+                continue;
+            }
+            $data[] = $token;
+        }
+        return sprintf('[%s]', implode(',', $data));
+    }
+
+    protected function parseArrayQuery(CharReader $reader, string $tag,
+                                       int $max, string $token, bool $isSymbolStop = true): string {
+        $data = [$token];
+        $block = [];
+        while ($reader->canNextUntil($max)) {
+            $token = $this->nextToken($reader, $max);
+            if ($token === ' ') {
+                continue;
+            }
+            if ($token !== '' && $isSymbolStop && $this->isOperatorSymbol($token[0])) {
+                $this->moveNextStop = true;
+                break;
+            }
+            if ($tag === '[') {
+                if ($token === ']') {
+                    $data[] = empty($block) ? '[]' : sprintf('[%s]',
+                        $this->parseWordToValue(implode('', $block))
+                    );
+                    $block = [];
+                }
+                $block[] = $token;
+                continue;
+            }
+            if ($tag === '.' && $token === ',') {
+                $this->moveNextStop = true;
+                break;
+            }
+            if ($token === $tag) {
+                $data[] = empty($block) ? '[]' : sprintf('[%s]',
+                    $this->parseWordToValue(implode('', $block))
+                );
+                $block = [];
+                continue;
+            }
+            $block[] = $token;
+        }
+        if (!empty($block)) {
+            $data[] = sprintf('[%s]',
+                $this->parseWordToValue(implode('', $block))
+            );
+        }
+        return implode('', $data);
+    }
+
+    protected function parseString(CharReader $reader, string $tag, int $max): string {
+        $i = $reader->indexOf($tag, 1, $max);
+        if ($i < 0) {
+            $i = $max;
+        }
+        $res = $reader->substr($i);
+        $reader->seek($i);
+        return sprintf('%s%s%s', $tag, $res, $tag);
+    }
+
+    protected function parseWordToValue(string $val): string {
         if ($val === '') {
             return '';
         }
-        if (empty($val)) {
+        if ($val === ' ') {
             return 'null';
         }
         if (is_numeric($val)) {
@@ -374,450 +834,89 @@ class ParserCompiler extends CompilerEngine {
         if ($val === 'true' || $val === 'false') {
             return $val;
         }
-        $first = substr($val, 0, 1);
-        if ($first === '"') {
+        if ($val[0] === '$') {
             return $val;
-        }
-        if ($first === '\'') {
-            $val = trim($val, '\'');
-        }
-        if (strpos($val, ',') > 0) {
-            return $this->parseMultiVal(explode(',', $val));
-        }
-        if ($first === '$') {
-            return $this->parseVal($val);
         }
         return sprintf('\'%s\'', $val);
     }
 
-    protected function parseMultiVal(array $vals) {
-        return implode(',', array_map([$this, 'getRealVal'], $vals));
+    protected function parseIfCall(CharReader $reader, int $max): string {
+        if ($reader->current() !== ':') {
+            $reader->back();
+        }
+        $first = $reader->indexOf(',', 0, $max);
+        if ($first < 0) {
+            return sprintf('if (%s):', $this->parseCallCode($reader, ':', $max, ' '));
+        }
+        $second = $reader->indexOf(',', $first - $reader->position() + 1, $max);
+        $func = $this->parseCallCode($reader, ':', $first, ' ');
+        $reader->seek($first + 1);
+        if ($second < 0) {
+            $case = $this->parseInlineCode($reader, $max);
+            return sprintf('if (%s) { echo %s; }', $func, $case);
+        }
+        $case = $this->parseInlineCode($reader, $second);
+        $reader->seek($second + 1);
+        return sprintf('if (%s) { echo %s; } else { echo %s;}', $func, $case,
+            $this->parseInlineCode($reader, $max));
     }
 
-    protected function replaceVal(string $content) {
-        return preg_replace_callback('/\$[A-z0-9_]+(?:\.\w+)+/i', function ($match) {
-            return $this->parseVal($match[0]);
-        }, $content);
+    protected function parseElseifCall(CharReader $reader, int $max): string {
+        if ($reader->current() !== ':') {
+            $reader->back();
+        }
+        return sprintf('elseif (%s):', $this->parseCallCode($reader, ':', $max, ' '));
     }
 
-    /**
-     * 转化值
-     * @param $val
-     * @return mixed|string
-     */
-    protected function parseVal($val) {
-        if (strrpos($val, '|') !== false) {
-            $filters = explode('|', $val);
-            $val = array_shift($filters);
+    protected function parseForCall(CharReader $reader, int $max): string {
+        if ($reader->current() !== ':') {
+            $reader->back();
         }
-        if (empty($val)) {
-            return '';
-        }
-        if (str_starts_with($val, 'this.')) {
-            $val = '$this->'.substr($val, 5);
-        }
-        if (str_contains($val, '.$')) {
-            $all = explode('.$', $val);
-            foreach ($all AS $key => $val) {
-                $all[$key] = $key == 0 ? $this->makeVar($val)
-                    : '[$'. $this->makeVar($val) . ']';
-            }
-            $p = implode('', $all);
-        } else {
-            $p = $this->makeVar($val);
-        }
-        if (empty($filters)) {
-            return $p;
-        }
-        foreach ($filters as $filter) {
-            list($tag, $values) = Str::explode($filter, ':', 2);
-            if ($this->allowFilters !== true &&
-                !in_array($tag, (array)$this->allowFilters)) {
-                continue;
-            }
-            $p = sprintf('%s(%s%s)', $tag, $p, empty($values) ? '' : (','.$values));
-        }
-        return $p;
-    }
-
-    /**
-     * 输出数组
-     * @param string $val
-     * @return mixed|string
-     */
-    protected function makeVar(string $val) {
-        if (strrpos($val, '.') === false) {
-            return $val;
-        }
-        if (preg_match('/(.+?)\[(.+)\](.*)/', $val, $match)) {
-            return sprintf('%s[%s]%s', $this->makeVar($match[1]),
-                $this->makeVar($match[2]),
-                empty($match[2]) ? '' : $this->makeVar($match[3]));
-        }
-        $t = explode('.', $val);
-        $p = array_shift($t);
-        foreach ($t AS $val) {
-            $p .= '[\'' . $val . '\']';
-        }
-        return $p;
-    }
-
-    /**
-     * 是否包含指定顺序的字符
-     * @param string $content
-     * @param array|string $search
-     * @return bool
-     */
-    protected function hasOrderTag(string $content, array|string $search) {
-        $last = -1;
-        foreach ((array)$search as $tag) {
-            $tmpLast = $last < 0 ? 0 : $last;
-            $index = $this->hasOneTag($content, $tag, $tmpLast);
-            if ($index === false) {
-                return false;
-            }
-            if ($index <= $last) {
-                return false;
-            }
-            $last = $index;
-        }
-        return true;
-    }
-
-    /**
-     * 是否有其中一个标签
-     * @param string $content
-     * @param array|string $tags
-     * @param int $index
-     * @return bool|int
-     */
-    protected function hasOneTag(string $content, array|string $tags, int $index = 0) {
-        if (!is_array($tags)) {
-            return strpos($content, $tags, $index);
-        }
-        foreach ($tags as $tag) {
-            $curr = strpos($content, $tag, $index);
-            if ($curr === false) {
-                continue;
-            }
-            if ($curr <= $index) {
-                continue;
-            }
-            return $curr;
-        }
-        return false;
-    }
-
-    /**
-     * 注释
-     * @param $content
-     * @return bool|string
-     */
-    protected function parseNote(string $content) {
-        if ((str_starts_with($content, '*')
-                && str_ends_with($content, '*')) ||
-            (str_starts_with($content, '//')
-                && str_ends_with($content, '//'))) {
-            return '<?php /*'.$content.'*/ ?>';
-        }
-        return false;
-    }
-
-    /**
-     * 转化赋值
-     * @param string $content
-     * @return bool|string
-     */
-    protected function parseAssign(string $content) {
-        $eqI = strpos($content, '=');
-        $dI = strpos($content, ',');
-        if ($eqI === false || $dI === false || $dI >= $eqI) {
-            return false;
-        }
-        $args = explode('=', $content, 2);
-        return sprintf('<?php list(%s) = %s; ?>', $args[0], $this->parsePhp($args[1]));
-    }
-
-    protected function parseLambda(string $content) {
-        if (preg_match('/(.+)=(.+)(\?|\|\|)((.*):)?(.+)/', $content, $match)) {
-            return sprintf('<?php %s = %s ? %s : %s; ?>',
-                $match[1], $match[2], $match[5] ?: $match[2] , $match[6]);
-        }
-        return false;
-    }
-
-    /**
-     * 转化语句块 if for switch
-     * @param $content
-     * @return bool|string
-     * @throws \Exception
-     */
-    protected function parseBlockTag($content) {
-        list($tag, $content) = explode(':', $content, 2);
-        if ($tag === 'request') {
-            return $this->parseRequest($content);
-        }
-        if (str_starts_with($tag, 'request.')) {
-            return $this->parseRequest($content, substr($tag, 8));
-        }
-        if ($tag === 'for') {
-            return $this->parseFor($content);
-        }
-        if ($tag === 'switch') {
-            return $this->parseSwitch($content);
-        }
-        if ($tag === 'case') {
-            return sprintf('<?php case %s:?>', $content);
-        }
-        if ($tag === 'default') {
-            return sprintf('<?php default:?>', $content);
-        }
-        if ($tag === 'extend') {
-            return $this->parseExtend($content);
-        }
-        if ($tag === 'if') {
-            return $this->parseIf($content);
-        }
-        if ($tag === 'page') {
-            return $this->parsePage($content);
-        }
-        if ($tag === 'elseif' || $tag === 'else if') {
-            return $this->parseElseIf($content);
-        }
-        if ($tag === 'url') {
-            return $this->parseUrl($content);
-        }
-        if ($tag === 'layout') {
-            $this->addHeader(sprintf('$this->layout = %s;', $this->getRealVal($content)));
-            return null;
-        }
-        if ($tag === 'use') {
-            $this->addHeader(sprintf('use \\%s;', trim($content, '\\')));
-            return null;
-        }
-        if ($tag === 'break' || $tag == 'continue') {
-            return sprintf('<?php %s %s; ?>', $tag, $content);
-        }
-        if (str_starts_with($tag, 'this.')) {
-            // 解析this. => $this->
-            return sprintf('<?=$this->%s(%s)?>', substr($tag, 5), $this->getRealVal($content));
-        }
-        if (str_starts_with($tag, '$') && substr_count($tag, '.') === 1) {
-            return sprintf('<?=%s(%s)?>', str_replace('.', '->', $tag), $this->getRealVal($content));
-        }
-        return $this->invokeFunc($tag, $content);
-    }
-
-    protected function parseUrl(string $content) {
-        $func = '<?= $this->url(%s) ?>';
-        if ($this->hasFunc('url')) {
-            $func = $this->funcList['url'];
-        }
-        return $this->invokeFuncParse($func, $this->parseUrlTag($content));
-    }
-
-    /**
-     * 转化值
-     * @param $key
-     * @param string $tag
-     * @return mixed
-     * @throws \Exception
-     */
-    protected function parseRequest($key, $tag = 'get') {
-        return call_user_func([app('request'), $tag], $this->getRealVal($key));
-    }
-
-    protected function parseElseIf($content) {
-        return sprintf('<?php elseif(%s):?>', $this->replaceVal($content));
-    }
-
-    protected function parsePage($content) {
-        if (!str_contains($content, ',')) {
-            return sprintf('<?= %s->getLink() ?>', $content);
-        }
-        list($model, $options) = explode(',', $content, 2);
-        return sprintf('<?= %s->getLink(%s) ?>', $model, $options);
-    }
-
-    protected function parseUrlTag($content) {
-        if (empty($content)) {
-            return '';
-        }
-        $first = substr($content, 0, 1);
-        if ($first == '\'' || $first == '"') {
-            return $content;
-        }
-        if ($first === '$') {
-            return $this->makeVar($content);
-        }
-        $url = '';
-        $i = -1;
-        $args = explode(':$', $content);
-        foreach ($args as $item) {
-            $i ++;
-            if ($i < 1) {
-                $url = sprintf('\'%s\'', $item);
-                continue;
-            }
-            if (strpos($item, ':') === false) {
-                $url .= sprintf('.%s', $this->parseVal('$'.$item));
-                continue;
-            }
-            list($key, $val) = explode(':', $item, 2);
-            $url .= sprintf('.%s.\'%s\'', $this->parseVal('$'.$key), $val);
-        }
-        return $url;
-    }
-
-    /**
-     * 加载
-     * @param $content
-     * @return null|string
-     */
-    protected function parseExtend($content) {
-        if (empty($content)) {
-            return null;
-        }
-        $files = [];
-        $data = '';
-        foreach (explode(',', $content) as $name) {
-            if (str_contains($name, '[')) {
-                $start = strpos($content, '[');
-                $data = substr($content, $start,
-                    strpos($content, ']', $start) - $start - 1);
-                break;
-            }
-            if (!str_starts_with($name, '$')) {
-                $name = sprintf('\'%s\'', trim($name, '\'"'));
-            }
-            $files[] = $name;
-        }
-        return sprintf('<?php $this->extend([%s], [%s]);?>',
-            implode(',', $files), $data);
-    }
-
-    /**
-     * 转化 if
-     * @param $content
-     * @return string
-     */
-    protected function parseIf($content) {
-        $args = explode(',', $content);
-        $length = count($args);
-        if ($length > 1 && strpos($args[0], ':') > 0) {
-            $args = [$content];
-            $length = 1;
-        }
-        $args[0] = $this->parsePhp($args[0]);
-        if ($length == 1) {
-            return '<?php if('.$args[0].'):?>';
-        }
-        if ($length == 2) {
-            return sprintf('<?php if (%s){ echo %s; }?>', $args[0], $args[1]);
-        }
-        return sprintf('<?php if (%s){ echo %s; } else { echo %s;}?>',
-            $args[0], $args[1], $args[2]);
-    }
-
-    /**
-     * 转化switch
-     * @param $content
-     * @return string
-     */
-    protected function parseSwitch($content) {
-        $args = explode(',', $content);
-        if (count($args) == 1) {
-            return sprintf('<?php switch(%s):?>', $this->parsePhp($content));
-        }
-        return sprintf('<?php switch(%s): case %s:?>', $this->parsePhp($args[0]), $args[1]);
-    }
-
-    /**
-     * 转化 for
-     * @param $content
-     * @return string
-     */
-    protected function parseFor(string $content) {
-        $args = str_contains($content, ';') ?
-            explode(';', $content) :
-            $this->parseComma($content);
-        $length = count($args);
-        $args[0] = $this->replaceVal($args[0]);
-        if ($length == 1) {
+        $first = $reader->indexOf(',', 0, $max);
+        if ($first < 0) {
             $this->forTags[] = 'while';
-            return '<?php while('.$args[0].'):?>';
+            return sprintf('while (%s):', $this->parseCallCode($reader, ':', $max, ' '));
         }
-        if ($length == 2) {
+        $second = $reader->indexOf(',', $first - $reader->position() + 1, $max);
+        $func =$this->parseCallCode($reader, ':', $first, ' ');
+        $reader->seek($first);
+        if ($second < 0) {
             $this->forTags[] = 'foreach';
-            return sprintf('<?php if (!empty(%s)): foreach(%s as %s):?>',
-                $args[0],
-                $args[0], $args[1] ?: '$item');
+            $case = $this->parseInlineCode($reader, $max);
+            return sprintf('if (!empty(%s)): foreach (%s as %s):', $func, $func, $case ?: '$item');
         }
-        $tag = substr(trim($args[2]), 0, 1);
-        if (in_array($tag, ['<', '>', '='])) {
-            list($key, $item) = $this->getForItem($args[1]);
+        $case = $this->parseInlineCode($reader, $max);
+        $reader->seek($second + 1);
+        $i = $reader->nextIs('<', '>', '=');
+        if ($i >= 0) {
+            list($key, $item) = $this->formatForItem($reader->substr($first, $second));
             $this->forTags[] = 'foreach';
-            return sprintf('<?php if (!empty(%s)): foreach(%s as %s=>%s): if (!(%s %s)): break; endif;?>',
-                $args[0],
-                $args[0], $key, $item, $key,  $args[2]);
+            return sprintf('if (!empty(%s)): foreach(%s as %s=>%s): if (!(%s %s)): break; endif;',
+                $func,
+                $func, $key, $item, $key,  $this->parseInlineCode($reader, $max));
         }
-        if ($this->isForTag($args)) {
+        $third = $this->parseInlineCode($reader, $max);
+        if ($this->isJudge($case) && $this->hasTag($third, ['+', '-', '*', '/', '%'])) {
             $this->forTags[] = 'for';
-            return sprintf('<?php for(%s; %s; %s): ?>',
-                $args[0],
-                $args[1],
-                $args[2]);
+            return sprintf('for(%s; %s; %s):',
+                $func, $case, $third);
         }
-
         $this->forTags[] = 'foreach';
-        return sprintf('<?php if (!empty(%s)):  $i = 0; foreach(%s as %s): $i ++; if ($i > %s): break; endif;?>',
-            $args[0],
-            $args[0],
-            $args[1]  ?: '$item',
-            $args[2]);
+        return sprintf('if (!empty(%s)):  $i = 0; foreach(%s as %s): $i ++; if ($i > %s): break; endif;',
+        $func, $func, $case ?: '$item', $third);
     }
 
-    protected function parseComma($content) {
-        if (!str_contains($content, ',')) {
-            return $content;
-        }
-        if (!str_contains($content, '(')
-            || !str_contains($content, ')')) {
-            return explode(',', $content);
-        }
-        $args = explode(')', $content);
-        $items = [$args[0]];
-        for($i = 1; $i < count($args); $i ++) {
-            $end = count($items) - 1;
-            $lines = explode(',', $args[$i]);
-            $items[$end] .= ')'.$lines[0];
-            for ($j = 1; $j < count($lines); $j ++) {
-                $items[] = $lines[$j];
-            }
-        }
-        return $items;
-    }
-
-    protected function isForTag($args) {
-        return $this->isJudge($args[1]) && $this->hasTag($args[2], ['+', '-', '*', '/', '%']);
-    }
 
     /**
      * 是否是判断语句
      * @param $str
      * @return bool
      */
-    protected function isJudge($str) {
+    protected function isJudge(string $str): bool {
         return $this->hasTag($str, ['<', '>', '==']);
     }
 
-    /**
-     * 是否包含字符
-     * @param $str
-     * @param $search
-     * @return bool
-     */
-    protected function hasTag($str, $search) {
+    protected function hasTag(string $str, array|string $search): bool {
         foreach ((array)$search as $tag) {
             if (str_contains($str, $tag)) {
                 return true;
@@ -826,7 +925,7 @@ class ParserCompiler extends CompilerEngine {
         return false;
     }
 
-    protected function getForItem($content) {
+    protected function formatForItem(string $content): array {
         $key = '$key';
         $item = $content;
         if (str_contains($content, '=>')) {
@@ -843,61 +942,114 @@ class ParserCompiler extends CompilerEngine {
         return [$key, $item];
     }
 
-    protected function parseTag($content) {
-        if ($content == 'break' || $content == 'continue') {
-            return sprintf('<?php %s; ?>', $content);
+    protected function parseSwitchCall(CharReader $reader, int $max): string {
+        if ($reader->current() !== ':') {
+            $reader->back();
         }
-        if ($content == 'else' || $content == '+') {
-            return '<?php else: ?>';
+        $i = $reader->indexOf(',', 0, $max);
+        if ($i < 0) {
+            return sprintf('switch(%s):', $this->parseCallCode($reader, ':', $max, ' '));
         }
-        if ($content == 'forelse' && end($this->forTags) == 'foreach') {
-            $this->forTags[count($this->forTags) - 1] = 'if';
-            return '<?php endforeach; else: ?>';
-        }
-        if ($content == '-') {
-            return '<?php endif; ?>';
-        }
-        return false;
+        $func = $this->parseCallCode($reader, ':', $i, ' ');
+        $reader->seek($i + 1);
+        $case = $this->parseInlineCode($reader, $max);
+        return sprintf('switch(%s): %s case %s:', PHP_EOL, $func, $case);
     }
 
-    /**
-     * 根据第一个字符转化
-     * @param $content
-     * @return bool|string
-     */
-    protected function parseFirstTag($content) {
-        $first = substr($content, 0, 1);
-        if ($first === '#') {
-            // 返回原句
-            return sprintf('%s%s%s', $this->beginTag, substr($content, 1), $this->endTag);
-        }
-        if ($first === '>') {
-            return $this->parseBlock(substr($content, 1));
-        }
-        if ($first === '/') {
-            return $this->parseEndTag(substr($content, 1));
-        }
-        if ($first === '|') {
-            return $this->parseIf(substr($content, 1));
-        }
-        if ($first === '+') {
-            return $this->parseElseIf(substr($content, 1));
-        }
-        if ($first === '~') {
-            return $this->parseFor(substr($content, 1));
-        }
-        // 直接输出
-        if ($first === '=') {
-            return sprintf('<?=%s?>', $this->parseVal(substr($content, 1)));
-        }
-        if ($first === '@') {
-            //
-            return $this->parseScriptRegister($content);
-        }
-        return false;
+    protected function parseBreakCall(CharReader $reader, int $max): string {
+        return 'break;';
     }
 
-    protected function parseScriptRegister(string $content) {
+    protected function parseElseCall(CharReader $reader, int $max): string {
+        return 'else:';
+    }
+
+    protected function parseDefaultCall(CharReader $reader, int $max): string {
+        return 'default:';
+    }
+
+    protected function parseCaseCall(CharReader $reader, int $max): string {
+        if ($reader->current() !== ':') {
+            $reader->back();
+        }
+        return sprintf('case %s:', $this->parseInlineCode($reader, $max));
+    }
+
+    protected function parseContinueCall(CharReader $reader, int $max): string {
+        return 'continue;';
+    }
+
+    protected function parseEndBlock(CharReader $reader, int $max): string {
+        $tag = $reader->substr($max);
+        if ($tag == '|' || $tag == 'if') {
+            return 'endif;';
+        }
+        if ($tag == '~' || $tag == 'for') {
+            return $this->parseEndFor();
+        }
+        if ($tag == '*' || $tag == 'switch') {
+            return 'endswitch;';
+        }
+        if (!in_array($tag, $this->blockTags)) {
+            return '';
+        }
+        $func = $this->funcList[$tag];
+        if (is_string($func)) {
+            return sprintf('%s(-1);', $func);
+        }
+        if (is_callable($func)) {
+            return call_user_func($func, -1);
+        }
+        return '';
+    }
+    protected function parseEndFor(): string {
+        if (count($this->forTags) == 0) {
+            return '';
+        }
+        $tag = array_pop($this->forTags);
+        if ($tag == 'foreach') {
+            return 'endforeach;endif;';
+        }
+        return sprintf('end%s;', $tag);
+    }
+
+    protected function parseTextBlockCall(CharReader $reader, int $max): string {
+        $this->blockTag = 'text';
+        return '';
+    }
+
+    protected function parseCssBlockCall(CharReader $reader, int $max): string {
+        return $this->parsePlainBlock($reader, $max, 'CSS');
+    }
+
+    protected function parseJsBlockCall(CharReader $reader, int $max): string {
+        return $this->parsePlainBlock($reader, $max, 'JS');
+    }
+
+    protected function parsePlainBlock(CharReader $reader, int $max, string $tag): string {
+        $this->blockTag = false;
+        $reader->seek($max);
+        $endTag = sprintf('%s/>%s', $this->beginTag, $this->endTag);
+        $end = $reader->indexOf($endTag);
+        if ($max < 0) {
+            return '';
+        }
+        $text = $reader->substr($max + 1, $end - 1);
+        $reader->seek($end + strlen($endTag));
+        return sprintf('$plain_%s = <<<%s%s%s%s%s;%s $this->register%s($plain_%s);',
+            $this->tplHash, $tag, PHP_EOL,
+            $text, PHP_EOL, $tag, PHP_EOL, ucfirst(strtolower($tag)), $this->tplHash);
+    }
+
+    protected function parseCssCall(CharReader $reader, int $max): string {
+        if ($reader->current() === ':') {
+            $reader->next();
+        }
+        return $this->parseLoadFile('css', $reader, $max);
+    }
+
+    protected function parseFileCall(CharReader $reader, int $max) {
+        $content = $reader->substr($max);
         $splitIndex = strpos($content, ':');
         $oldContent = $content;
         if ($splitIndex > 1) {
@@ -907,141 +1059,162 @@ class ParserCompiler extends CompilerEngine {
                 $content = $this->invokeFunc($func, $oldContent);
             }
             if (empty($content)) {
-                return null;
+                return '';
             }
         }
         if (str_ends_with($oldContent, '.js')) {
-            $this->addHeader(sprintf('$this->registerJsFile(\'%s\');', $content));
-            return null;
+            return $this->parseLoadFile('js', $content);
         }
         if (str_ends_with($oldContent, '.css')) {
-            $this->addHeader(sprintf('$this->registerCssFile(\'%s\');', $content));
-            return null;
+            return $this->parseLoadFile('css', $content);
         }
-        return false;
+        return '';
     }
 
-    protected function parseEndTag($content) {
-        if ($content == '|' || $content == 'if') {
-            return '<?php endif;?>';
+    protected function parseJsCall(CharReader $reader, int $max): string {
+        if ($reader->current() === ':') {
+            $reader->next();
         }
-        if ($content == '~' || $content == 'for') {
-            return $this->parseEndForTag();
-        }
-        if ($content == '*' || $content == 'switch') {
-            return '<?php endswitch ?>';
-        }
-        if (!in_array($content, $this->blockTags)) {
-            return false;
-        }
-        $func = $this->funcList[$content];
-        if (is_string($func)) {
-            return sprintf('<?php %s(-1);?>', $func);
-        }
-        if (is_callable($func)) {
-            return call_user_func($func, -1);
-        }
-        return false;
+        return $this->parseLoadFile('js', $reader, $max);
     }
 
-    protected function parseEndForTag() {
-        if (count($this->forTags) == 0) {
-            return false;
+    protected function parseLoadFile(string $func, string|CharReader $fileName, int $max = 0): string {
+        if ($fileName instanceof CharReader) {
+            $fileName = $fileName->substr($max);
         }
-        $tag = array_pop($this->forTags);
-        if ($tag == 'foreach') {
-            return '<?php endforeach;endif;?>';
-        }
-        return '<?php end'.$tag.';?>';
+        $this->addHeader($this->invokeFunc($func, $this->parseWordToValue($fileName)).';');
+        return '';
     }
 
-    /**
-     * @return string
-     */
-    protected function parseEndBlock() {
-        list($tag, $this->blockTag) = [$this->blockTag, false];
-        if ($tag == 'php' || $tag === '') {
-            return '?>';
+    protected function parseTplCall(CharReader $reader, int $max): string {
+        if ($reader->current() === ':') {
+            $reader->next();
         }
-        if ($tag == 'js' || $tag == 'css') {
-            return sprintf(PHP_EOL.'%s;'.PHP_EOL.' $this->register%s($%s_%s);?>', strtoupper($tag), ucfirst($tag), $tag, $this->tplHash);
-        }
-        if ($tag == 'text') {
-            return null;
-        }
-        return null;
+        return $this->invokeFunc('tpl', $this->parseUrlTag($reader, $max));
     }
 
-    /**
-     * 转化语句块
-     * @param string $content
-     * @return string|null
-     */
-    protected function parseBlock(string $content): ?string {
-        if ($content == '' || $content == 'php') {
-            $this->blockTag = 'php';
-            return '<?php ';
-        }
-        $args = '';
-        if (strpos($content, ':')) {
-            list($content, $args) = explode(':', $content, 2);
-            $args = rtrim($args, ';').';'.PHP_EOL;
-        }
-        if ($content == 'js' || $content == 'script') {
-            $this->blockTag = 'js';
-            return sprintf('<?php %s$js_%s = <<<JS', $args, $this->tplHash);
-        }
-        if ($content == 'css' || $content == 'style') {
-            $this->blockTag = 'css';
-            return sprintf('<?php %s$css_%s = <<<CSS', $args, $this->tplHash);
-        }
-        if ($content == 'text') {
-            $this->blockTag = 'text';
-            return null;
-        }
-        return sprintf('<?php %s:%s; ?>', $content, $args);
-    }
-
-    public function parsePhp($content) {
-        $content = preg_replace_callback('/(([a-z]+)\:(.*)|([a-z]+)\(([^\(\)]*)\))/i',function($match) {
-            $tag = $match[2];
-            $args = $match[3];
-            if (empty($tag)) {
-                $tag = $match[4];
-                $args = $match[5];
+    protected function parseRequestCall(CharReader $reader, int $max): string {
+        $code = $reader->current();
+        if ($code === '.') {
+            $next = $this->nextToken($reader, $max);
+            if ($next[0] === '$') {
+                return '';
             }
-            if (!$this->hasFunc($tag) || in_array($tag, $this->blockTags)) {
-                return $match[0];
+            return sprintf('request()->%s(%s)', $next, $this->parseInlineCode($reader, $max));
+        }
+        if ($code !== ':') {
+            $reader->back();
+        }
+        return $this->invokeFunc('request', $this->parseInlineCode($reader, $max));
+    }
+
+    protected function parseUrlCall(CharReader $reader, int $max): string {
+        if ($reader->current() === ':') {
+            $reader->next();
+        }
+        return $this->invokeFunc('url', $this->parseUrlTag($reader, $max));
+    }
+
+    protected function parseLayoutCall(CharReader $reader, int $max): string {
+        if ($reader->current() === ':') {
+            $reader->next();
+        }
+        return sprintf('$this->layout = %s;', $this->parseWordToValue($reader->substr($max)));
+    }
+
+    protected function parseUrlTag(CharReader $reader, int $max): string {
+        $reader->jumpWhitespace();
+        $first = $reader->current();
+        if ($first === '\'' || $first == '"') {
+            return $this->parseString($reader, $first, $max);
+        }
+        if ($first === '$') {
+            $reader->back();
+            return $this->parseInlineCode($reader, $max);
+        }
+        $begin = $reader->position();
+        $data = [];
+        $comma = $reader->indexOf(',', 0, $max);
+        $maxIndex = $comma > 0 ? $comma : $max;
+        while ($reader->canNext()) {
+            $i = $reader->indexOf(':$', 0, $maxIndex);
+            if ($i < 0) {
+                $data[] = sprintf('\'%s\'', $reader->substr($begin, $maxIndex));
+                $reader->seek($maxIndex);
+                break;
             }
-            return sprintf('%s(%s)',
-                $this->funcList[$tag], $this->parseFuncParameters($args));
-        }, $content);
-        return $this->replaceVal($content);
+            $data[] = sprintf('\'%s\'', $reader->substr($begin, $i));
+            $reader->seek($i + 1);
+            $begin = $i;
+            $j = $reader->indexOf(':', 0, $maxIndex);
+            if ($j < 0) {
+                $data[] = '$'.$this->parseInlineCode($reader, $maxIndex);
+                break;
+            }
+            $data[] = '$'.$this->parseInlineCode($reader, $j);
+            $begin = $j + 1;
+        }
+        if ($comma < 0) {
+            return implode('.', $data);
+        }
+        $data = [implode('.', $data)];
+        while ($reader->canNext()) {
+            $token = $this->nextScope($reader, $max, '}');
+            if ($token === '') {
+                break;
+            }
+            if ($token === ',' || $token === ' ') {
+                continue;
+            }
+            $data[] = $token;
+        }
+        return implode(',', $data);
+    }
+
+    protected function parsePageCall(CharReader $reader, int $max): string {
+        if ($reader->current() !== ':') {
+            $reader->back();
+        }
+        $reader->jumpWhitespace();
+        $i = $reader->indexOf(',', 0, $max);
+        if ($i < 0) {
+            return sprintf('%s->getLink()', $this->parseInlineCode($reader, $max));
+        }
+        $func = $this->parseInlineCode($reader, $i);
+        $reader->seek($i + 1);
+        return sprintf('%s->getLink(%s)', $func,
+            $this->parseInlineCode($reader, $max));
     }
 
     /**
      * 输出代码
-     * @param $line
+     * @param string $line
      * @param mixed ...$args
      * @return string
      */
-    public function echo($line, ...$args) {
+    protected function formatEcho(string $line, mixed ...$args): string {
         if (!empty($args)) {
             $line = sprintf($line, ...$args);
+        }
+        if ($line === '') {
+            return '';
         }
         return sprintf('<?= %s ?>', $line);
     }
 
     /**
      * 代码块
-     * @param $line
+     * @param string $line
      * @param mixed ...$args
      * @return string
      */
-    public function block($line, ...$args) {
+    protected function formatBlock(string $line, mixed ...$args): string {
         if (!empty($args)) {
             $line = sprintf($line, ...$args);
         }
-        return sprintf('<?php %s ?>', $line);
+        if ($line === '') {
+            return '';
+        }
+        return sprintf('<?php %s%s ?>', $line, Str::endWith($line, [';', ':']) ? '' : ';');
     }
 }

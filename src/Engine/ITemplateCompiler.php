@@ -21,6 +21,4 @@ interface ITemplateCompiler {
      * @return ITemplateCompiler
      */
     public function registerFunc(string $tag, mixed $func = null, bool $isBlock = false): ITemplateCompiler;
-
-    public function disallowFunc(string $func): ITemplateCompiler;
 }

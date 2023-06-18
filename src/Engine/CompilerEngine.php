@@ -40,10 +40,10 @@ abstract class CompilerEngine implements ITemplateEngine {
 
     /**
      * 添加头部
-     * @param $lines
+     * @param array|string $lines
      * @return $this
      */
-    public function addHeader($lines) {
+    public function addHeader(array|string $lines) {
         $this->headers = array_merge($this->headers, (array)$lines);
         return $this;
     }

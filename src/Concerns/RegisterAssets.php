@@ -193,7 +193,7 @@ trait RegisterAssets {
         return $this;
     }
 
-    public function registerJsFile($urls, $options = [], $key = null) {
+    public function registerJsFile($urls, array $options = [], mixed $key = null) {
         $position = Arr::remove($options, 'position', View::HTML_FOOT);
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;

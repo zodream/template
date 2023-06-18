@@ -7,11 +7,9 @@
 
 ### 代码块
 
-    {>php}            php 语句块
+    {>}            php 语句块
     {>js}             脚本语句块
-    {>script}         脚本语句块
     {>css}            样式语句块
-    {>style}          样式语句块
     {>text}           文本语句块 内容原样输出
 
     {/>}              语句块结束
@@ -20,8 +18,9 @@
 
 ### 注释
 
+    <!--  -->        支持html注释，里面的内容都会被删掉
     {*    *}          php注释
-    {//    //}        php注释
+    {// }        php注释
 
 ### for 循环
 
@@ -49,17 +48,10 @@
 
 ### 加载文件
 
-    {link href=file}      引入css文件
-    {css href=file}       引入css文件
-    {js src=file}         引入js文件
-    {script src=file}     引入js文件
-    {php file=file}       include file
-    {tpl file=file}       加载模板文件
-
-    href|src|file 可以通用 可以多个文件  加不加 " ' 都可以
-
-    {extend:file}         加载模板文件
-    {extend:file,[]}         加载模板文件并传递 [] 值
+    {@file.js}        自动识别加载css或js 文件
+    {css:file}      引入css文件
+    {js:file}         引入js文件
+    {tpl:file}       加载模板文件
 
 
 ### 特殊标记
@@ -76,9 +68,9 @@
 
 ### 符号标记
 
-    {|:...}              {if:...}
-    {+:...}              {elseif:...}
-    {~:...}              {for:...}
+    {| ...}              {if:...}
+    {+ ...}              {elseif:...}
+    {~ ...}              {for:...}
 
 ### 结束标记
 
@@ -91,6 +83,8 @@
 
 ### 注册方法
 
+所有的方法必须注释，否则替换为 null
+
     {header:}          <?=$this->header()?>
     {footer:}          <?=$this->footer()?>
 
@@ -98,6 +92,10 @@
     注册方法 'a', 输出模板'<?=b(%s)?>'  模板使用 {a:b,c,d,e}            会输出   <?=b(c,d,e)?>
     注册方法 'a', 输出模板'<?php b(%s, %s);?>'  模板使用 {a:b,c,d,e}            会输出   <?php b(c,d);?>
 
+### 给方法传值
+
+    {url:./admin?query=:$a:&v=:$b,false}       <?= $this->url('./admin?query='.$a.'&v='.$b', false) ?>
+    {query:1,a=>b,c=>d}              <?php query(1, ['a'=>'b', 'c' => 'd']); ?>
 ### 原样输出
 
     {#...}           输出 {...}
@@ -105,6 +103,7 @@
 ### 全局赋值
 
     {this.a=b}       $this->a = 'b'
+    {.a=b}       $this->a = 'b'
     {this.a=true}    $this->a = true  或 false
     {this.a=$b}      $this->a = $b
     {this.a='b}      $this->a = 'b'
@@ -112,18 +111,18 @@
 
 ### 批量赋值
 
-    {$a,$b=1,2}      $a = 1 $b = 2
+    // {$a,$b=1,2}      $a = 1 $b = 2
 
 ### 赋值
 
-    {$a=$b?$c:$d}      <?php $a = $b ? $c : $d;?>
-    {$a=$b?$d}         <php $a = $b ? $b : $d;?>
-    {$a=$b||$d}        <?php $a = $b ? $b : $d;?>
-    {$a=$b}            <?php $a = $b;?>
+    // {$a=$b?$c:$d}      <?php $a = $b ? $c : $d;?>
+    // {$a=$b?$d}         <php $a = $b ? $b : $d;?>
+    // {$a=$b||$d}        <?php $a = $b ? $b : $d;?>
+    // {$a=$b}            <?php $a = $b;?>
 
 ### 输出值
 
-    {$a,$b}            <?= isset($a) ? $a : $b?>
+    {$a??$b}            <?= $a ?? $b?>
     {$a}            <?= $a ?>
     {$a->a}            <?= $a->a ?>
     {$a.a}            <?= $a['a'] ?>
