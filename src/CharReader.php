@@ -93,7 +93,7 @@ class CharReader implements Stringable {
         return $i >= 0 && $i < $this->length;
     }
 
-    protected function readChar(int $p): string {
+    public function readChar(int $p): string {
         if (!$this->isValidPosition($p)) {
             return '';
         }

@@ -453,7 +453,7 @@ class ParserCompiler extends CompilerEngine {
                 }
                 continue;
             }
-            if ($this->isCombinationSymbol($token[0])) {
+            if ($this->isSymbol($token[0])) {
                 if (!empty($block)) {
                     $data[] = implode('', $block);
                     $block = [];
@@ -516,7 +516,8 @@ class ParserCompiler extends CompilerEngine {
     protected function parseCallCode(CharReader $reader, string $tag, int $max, string $link = ','): string {
         $data = [];
         while ($reader->canNextUntil($max)) {
-            $token = $this->nextScope($reader, $max, ')');
+            // 只有第一个会被解析成字符串
+            $token = $this->nextScope($reader, $max, ')', !empty($data));
             if ($tag === '(' && $token === ')') {
                 break;
             }
@@ -534,7 +535,7 @@ class ParserCompiler extends CompilerEngine {
                     $this->nextToken($reader, $max));
                 continue;
             }
-            if ($token === '=>') {
+            if ($token === '=>' || $token === '=') {
                 $last = array_pop($data);
                 $data[] = $this->parseArray($reader, '[', $max, sprintf('%s => %s',
                     $last,
@@ -568,7 +569,7 @@ class ParserCompiler extends CompilerEngine {
             if ($code === '') {
                 break;
             }
-            $isSymbol = $this->isCombinationSymbol($code);
+            $isSymbol = $this->isSymbol($code);
             if (!$this->isWhitespace($code) && !$isSymbol && !$this->isBracket($code)) {
                 continue;
             }
@@ -622,11 +623,24 @@ class ParserCompiler extends CompilerEngine {
      * 把一些分词进行合并，例如 数组， 取数组的
      * @param CharReader $reader
      * @param int $max
+     * @param string $endTag
+     * @param bool $allowOperator 是否允许运算符，否则合并为字符串
      * @return string
      */
-    public function nextScope(CharReader $reader, int $max, string $endTag): string {
+    public function nextScope(CharReader $reader, int $max, string $endTag = '', bool $allowOperator = true): string {
+        if (!$allowOperator) {
+            $next = $reader->readChar($reader->position() + 1);
+            if ($next === '') {
+                return $next;
+            }
+            if ($next === '.' || !$this->isSeparatorSymbol($next)) {
+                $reader->next();
+                return $this->nextStringScope($reader, $max);
+            }
+        }
         $token = $this->nextToken($reader, $max);
-        if ($token === '' || $this->isWhitespace($token) || $this->isCombinationSymbol($token[0])) {
+        if ($token === '' || $this->isWhitespace($token) ||
+            $this->isSymbol($token[0])) {
             return $token;
         }
         if ($token === '[') {
@@ -659,6 +673,39 @@ class ParserCompiler extends CompilerEngine {
     }
 
     /**
+     * 转化没有 引号的字符串
+     * @param CharReader $reader
+     * @param int $max
+     * @return string
+     */
+    protected function nextStringScope(CharReader $reader, int $max): string {
+        $begin = $reader->position();
+        $data = [];
+        $comma = $reader->indexOf(',', 0, $max);
+        $maxIndex = $comma > 0 ? $comma : $max;
+        while ($reader->canNextUntil($maxIndex + 1)) {
+            $i = $reader->indexOf(':$', 0, $maxIndex);
+            if ($i < 0) {
+                $data[] = $this->parseWordToValue($reader->substr($begin, $maxIndex));
+                $reader->seek($maxIndex);
+                break;
+            }
+            $data[] = sprintf('\'%s\'', $reader->substr($begin, $i));
+            $reader->seek($i + 1);
+            $begin = $i;
+            $j = $reader->indexOf(':', 0, $maxIndex);
+            if ($j < 0) {
+                $data[] = '$'.$this->parseInlineCode($reader, $maxIndex);
+                break;
+            }
+            $data[] = '$'.$this->parseInlineCode($reader, $j);
+            $begin = $j + 1;
+        }
+        $reader->seek($maxIndex);
+        return implode('.', $data);
+    }
+
+    /**
      * 判断 . 是数组查询还是方法调用
      * @param CharReader $reader
      * @param int $max
@@ -669,7 +716,7 @@ class ParserCompiler extends CompilerEngine {
         return $j === 0 && $i < $max;
     }
 
-    protected function parseCallQuery(CharReader $reader, int $max, string $begin) {
+    protected function parseCallQuery(CharReader $reader, int $max, string $begin): string {
         $data = [$begin];
         while ($reader->canNextUntil($max)) {
             $token = $this->nextToken($reader, $max);
@@ -689,14 +736,23 @@ class ParserCompiler extends CompilerEngine {
      * @param string $code
      * @return bool
      */
-    protected function isCombinationSymbol(string $code): bool
+    protected function isSymbol(string $code): bool
     {
         if ($this->isOperatorSymbol($code)) {
             return true;
         }
+        return $this->isSeparatorSymbol($code);
+    }
+
+    /**
+     * 判断是否是拆分符号
+     * @param string $code
+     * @return bool
+     */
+    protected function isSeparatorSymbol(string $code): bool {
         return match ($code) {
             ':', '.', ';', ',', '\'', '"' => true,
-           default => false,
+            default => false,
         };
     }
 
@@ -727,7 +783,7 @@ class ParserCompiler extends CompilerEngine {
         };
     }
 
-    protected function parseThis(CharReader $reader, int $max) {
+    protected function parseThis(CharReader $reader, int $max): string {
         if ($reader->is('$')) {
             return '';
         }
@@ -742,7 +798,7 @@ class ParserCompiler extends CompilerEngine {
         }
         $endTag = $tag === '(' ? ')' : ']';
         while ($reader->canNextUntil($max)) {
-            $token = $this->nextScope($reader, $max, $endTag);
+            $token = $this->nextScope($reader, $max, $endTag, !empty($data));
             if ($token === $endTag) {
                 break;
             }
@@ -756,7 +812,7 @@ class ParserCompiler extends CompilerEngine {
             if ($token === ',') {
                 continue;
             }
-            if ($token === '=>') {
+            if ($token === '=>' || $token === '=') {
                 $last = count($data)-1;
                 $data[$last] = sprintf('%s => %s', $data[$last],
                     $this->nextScope($reader, $max, $endTag));
@@ -1048,7 +1104,7 @@ class ParserCompiler extends CompilerEngine {
         return $this->parseLoadFile('css', $reader, $max);
     }
 
-    protected function parseFileCall(CharReader $reader, int $max) {
+    protected function parseFileCall(CharReader $reader, int $max): string {
         $content = $reader->substr($max);
         $splitIndex = strpos($content, ':');
         $oldContent = $content;
@@ -1087,10 +1143,10 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseTplCall(CharReader $reader, int $max): string {
-        if ($reader->current() === ':') {
-            $reader->next();
-        }
-        return $this->invokeFunc('tpl', $this->parseUrlTag($reader, $max));
+//        if ($reader->current() === ':') {
+//            $reader->next();
+//        }
+        return $this->invokeFunc('tpl', $this->parseCallCode($reader, ':', $max));
     }
 
     protected function parseRequestCall(CharReader $reader, int $max): string {
@@ -1109,10 +1165,10 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseUrlCall(CharReader $reader, int $max): string {
-        if ($reader->current() === ':') {
-            $reader->next();
-        }
-        return $this->invokeFunc('url', $this->parseUrlTag($reader, $max));
+//        if ($reader->current() === ':') {
+//            $reader->next();
+//        }
+        return $this->invokeFunc('url', $this->parseCallCode($reader, ':', $max));
     }
 
     protected function parseLayoutCall(CharReader $reader, int $max): string {
@@ -1120,55 +1176,6 @@ class ParserCompiler extends CompilerEngine {
             $reader->next();
         }
         return sprintf('$this->layout = %s;', $this->parseWordToValue($reader->substr($max)));
-    }
-
-    protected function parseUrlTag(CharReader $reader, int $max): string {
-        $reader->jumpWhitespace();
-        $first = $reader->current();
-        if ($first === '\'' || $first == '"') {
-            return $this->parseString($reader, $first, $max);
-        }
-        if ($first === '$') {
-            $reader->back();
-            return $this->parseInlineCode($reader, $max);
-        }
-        $begin = $reader->position();
-        $data = [];
-        $comma = $reader->indexOf(',', 0, $max);
-        $maxIndex = $comma > 0 ? $comma : $max;
-        while ($reader->canNext()) {
-            $i = $reader->indexOf(':$', 0, $maxIndex);
-            if ($i < 0) {
-                $data[] = sprintf('\'%s\'', $reader->substr($begin, $maxIndex));
-                $reader->seek($maxIndex);
-                break;
-            }
-            $data[] = sprintf('\'%s\'', $reader->substr($begin, $i));
-            $reader->seek($i + 1);
-            $begin = $i;
-            $j = $reader->indexOf(':', 0, $maxIndex);
-            if ($j < 0) {
-                $data[] = '$'.$this->parseInlineCode($reader, $maxIndex);
-                break;
-            }
-            $data[] = '$'.$this->parseInlineCode($reader, $j);
-            $begin = $j + 1;
-        }
-        if ($comma < 0) {
-            return implode('.', $data);
-        }
-        $data = [implode('.', $data)];
-        while ($reader->canNext()) {
-            $token = $this->nextScope($reader, $max, '}');
-            if ($token === '') {
-                break;
-            }
-            if ($token === ',' || $token === ' ') {
-                continue;
-            }
-            $data[] = $token;
-        }
-        return implode(',', $data);
     }
 
     protected function parsePageCall(CharReader $reader, int $max): string {
