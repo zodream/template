@@ -415,6 +415,15 @@ class ParserCompiler extends CompilerEngine {
             if ($token === PHP_EOL || $token === ';') {
                 break;
             }
+            if ($token === '?') {
+                if (!empty($block)) {
+                    $data[] = implode('', $block);
+                    $block = [];
+                }
+                $data[] = $token;
+                $data[] = $this->parseLambda($reader, $max);
+                continue;
+            }
             if ($token === '[') {
                 if (!empty($block)) {
                     $data[] = implode('', $block);
@@ -544,11 +553,24 @@ class ParserCompiler extends CompilerEngine {
             }
             $data[] = $token;
         }
-        return implode($link, $data);
+        return implode($link, array_filter($data, function ($item) {
+            return $item !== '' && $item !== ' ';
+        }));
     }
 
     protected function parseToken(string $token): string {
         return '';
+    }
+
+    public function parseLambda(CharReader $reader, int $max): string {
+        $i = $reader->indexOf(':', 0, $max);
+        if ($i < 0) {
+            return $this->parseInlineCode($reader, $max);
+        }
+        $data = [$this->parseCallCode($reader, ':',  $i, ''), ':'];
+        $reader->seek($i);
+        $data[] = $this->parseCallCode($reader, ':',  $max, '');
+        return implode(' ', $data);
     }
 
     /**
@@ -629,14 +651,14 @@ class ParserCompiler extends CompilerEngine {
      */
     public function nextScope(CharReader $reader, int $max, string $endTag = '', bool $allowOperator = true): string {
         if (!$allowOperator) {
-            $next = $reader->readChar($reader->position() + 1);
+            $offset = 1;
+            $next = $reader->readChar($reader->position() + $offset);
             if ($next === '') {
                 return $next;
             }
-
-            if ($next !== '$' && ($next === '.' || !$this->isSeparatorSymbol($next))) {
+            if ($next !== '$' && $next !== ' ' && ($next === '.' || !$this->isSeparatorSymbol($next))) {
                 // 首字符不饿能为 $ ' "
-                $reader->next();
+                $reader->seekOffset($offset);
                 return $this->nextStringScope($reader, $max);
             }
         }
@@ -773,7 +795,7 @@ class ParserCompiler extends CompilerEngine {
      */
     protected function isOperatorSymbol(string $code): bool {
         return match ($code) {
-            '!', '&', '=', '%', '*', '+', '/', '-', '<', '>', '?', '^', '~' => true,
+            '!', '&', '=', '%', '*', '+', '/', '-', '|', '<', '>', '?', '^', '~' => true,
             default => false,
         };
     }
