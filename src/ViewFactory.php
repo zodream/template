@@ -116,15 +116,15 @@ class ViewFactory extends MagicObject {
     /**
      * @return Directory
      */
-    public function getDirectory() {
+    public function getDirectory(): Directory {
         return $this->directory;
     }
 
     /**
-     * @param string $layout
+     * @param string|File $layout
      * @return ViewFactory
      */
-    public function setLayout($layout) {
+    public function setLayout(string|File $layout) {
         $this->layout = $layout;
         return $this;
     }
@@ -243,7 +243,7 @@ class ViewFactory extends MagicObject {
      * @param callable|null $callback
      * @return string
      */
-    public function render(string|File $file, array $data = [], ?callable $callback = null) {
+    public function render(string|File $file, array $data = [], ?callable $callback = null): mixed {
         $content = $this->renderJust(empty($file) ? $this->defaultFile : $file, $data, $callback);
         $layout = $this->findLayoutFile();
         if (empty($layout)) {
@@ -254,7 +254,15 @@ class ViewFactory extends MagicObject {
         return $this->renderJust($layout, $layoutData);
     }
 
-    protected function renderJust(string|File $file, array $data = [], ?callable $callback = null) {
+    /**
+     * 仅生成文件，不调用公共模板
+     * @param string|File $file
+     * @param array $data
+     * @param callable|null $callback
+     * @return mixed|string|null
+     * @throws FileException
+     */
+    public function renderJust(string|File $file, array $data = [], ?callable $callback = null): mixed {
         if ($this->engine instanceof ITemplateExecutor) {
             $content = $this->engine->execute((string)$file, $this->merge($data));
             if (!empty($callback)) {
@@ -265,6 +273,25 @@ class ViewFactory extends MagicObject {
         $this->setAttribute($data);
         return $this->getView(empty($file) ? $this->defaultFile : $file)
             ->renderWithData($data, $callback);
+    }
+
+    /**
+     * 临时使用,一些设置需要回滚
+     * @param callable $cb
+     * @return mixed
+     * @throws FileException
+     */
+    public function temporary(callable $cb): mixed {
+        $folder = $this->directory;
+        $layout = $this->layout;
+        $engine = $this->engine;
+        $configs = $this->configs;
+        $res = call_user_func($cb, $this);
+        $this->configs = $configs;
+        $this->directory = $folder;
+        $this->layout = $layout;
+        $this->engine = $engine;
+        return $res;
     }
 
     public function findLayoutFile() {
