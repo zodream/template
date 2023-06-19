@@ -14,11 +14,11 @@
     ],
     "require": {
         "php": ">=8.1",
-        "zodream/zodream": "dev-master",
-        "zodream/helpers": "dev-master"
+        "zodream/zodream": "^5.2",
+        "zodream/helpers": "^5.2"
     },
     "require-dev": {
-        "twig/twig": "^3.5.1"
+        "twig/twig": "^3.6.1"
     },
     "autoload": {
         "psr-4": {
