@@ -633,7 +633,9 @@ class ParserCompiler extends CompilerEngine {
             if ($next === '') {
                 return $next;
             }
-            if ($next === '.' || !$this->isSeparatorSymbol($next)) {
+
+            if ($next !== '$' && ($next === '.' || !$this->isSeparatorSymbol($next))) {
+                // 首字符不饿能为 $ ' "
                 $reader->next();
                 return $this->nextStringScope($reader, $max);
             }
@@ -683,6 +685,14 @@ class ParserCompiler extends CompilerEngine {
         $data = [];
         $comma = $reader->indexOf(',', 0, $max);
         $maxIndex = $comma > 0 ? $comma : $max;
+        $eq = -1;
+        if ($reader->indexOf(':$', 0, $maxIndex) < 0) {
+            // 只有出现 :$ 才是字符串解析，以 , 作为结束符，否则要考虑 = 为数组
+            $eq = $reader->indexOf('=', 0, $max);
+            if ($eq > 0 && ($eq < $comma || $comma < 0)) {
+                $maxIndex = $eq;
+            }
+        }
         while ($reader->canNextUntil($maxIndex + 1)) {
             $i = $reader->indexOf(':$', 0, $maxIndex);
             if ($i < 0) {
@@ -701,7 +711,7 @@ class ParserCompiler extends CompilerEngine {
             $data[] = '$'.$this->parseInlineCode($reader, $j);
             $begin = $j + 1;
         }
-        $reader->seek($maxIndex);
+        $reader->seek($maxIndex - ($maxIndex === $eq ? 1 : 0));
         return implode('.', $data);
     }
 
