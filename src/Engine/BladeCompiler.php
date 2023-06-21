@@ -18,7 +18,7 @@ class BladeCompiler extends CompilerEngine {
      *
      * @var array
      */
-    protected $extensions = [];
+    protected array $extensions = [];
 
     /**
      * All custom "directive" handlers.
@@ -27,7 +27,7 @@ class BladeCompiler extends CompilerEngine {
      *
      * @var array
      */
-    protected $customDirectives = [];
+    protected array $customDirectives = [];
     
 
     /**
@@ -35,7 +35,7 @@ class BladeCompiler extends CompilerEngine {
      *
      * @var array
      */
-    protected $compilers = [
+    protected array $compilers = [
         'Extensions',
         'Statements',
         'Comments',
@@ -47,42 +47,42 @@ class BladeCompiler extends CompilerEngine {
      *
      * @var array
      */
-    protected $rawTags = ['{!!', '!!}'];
+    protected array $rawTags = ['{!!', '!!}'];
 
     /**
      * Array of opening and closing tags for regular echos.
      *
      * @var array
      */
-    protected $contentTags = ['{{', '}}'];
+    protected array $contentTags = ['{{', '}}'];
 
     /**
      * Array of opening and closing tags for escaped echos.
      *
      * @var array
      */
-    protected $escapedTags = ['{{{', '}}}'];
+    protected array $escapedTags = ['{{{', '}}}'];
 
     /**
      * The "regular" / legacy echo string format.
      *
      * @var string
      */
-    protected $echoFormat = '$this->t(%s)';
+    protected string $echoFormat = '$this->t(%s)';
 
     /**
      * Array of footer lines to be added to template.
      *
      * @var array
      */
-    protected $footer = [];
+    protected array $footer = [];
 
     /**
      * Counter to keep track of nested forelse statements.
      *
      * @var int
      */
-    protected $forelseCounter = 0;
+    protected int $forelseCounter = 0;
 
 
     public function registerFunc(string $tag, mixed $func = null, bool $isBlock = false): ITemplateEngine {

@@ -14,8 +14,8 @@
     ],
     "require": {
         "php": ">=8.1",
-        "zodream/zodream": "^5.2",
-        "zodream/helpers": "^5.2"
+        "zodream/zodream": "dev-master",
+        "zodream/helpers": "dev-master"
     },
     "require-dev": {
         "twig/twig": "^3.6.1"

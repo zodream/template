@@ -522,11 +522,12 @@ class ParserCompiler extends CompilerEngine {
      * @param string $link 连接符
      * @return string
      */
-    protected function parseCallCode(CharReader $reader, string $tag, int $max, string $link = ','): string {
+    protected function parseCallCode(CharReader $reader, string $tag, int $max, string $link = ',',
+                                     bool $firstMaybeString = true): string {
         $data = [];
         while ($reader->canNextUntil($max)) {
             // 只有第一个会被解析成字符串
-            $token = $this->nextScope($reader, $max, ')', !empty($data));
+            $token = $this->nextScope($reader, $max, ')', !$firstMaybeString || !empty($data));
             if ($tag === '(' && $token === ')') {
                 break;
             }
@@ -934,10 +935,10 @@ class ParserCompiler extends CompilerEngine {
         }
         $first = $reader->indexOf(',', 0, $max);
         if ($first < 0) {
-            return sprintf('if (%s):', $this->parseCallCode($reader, ':', $max, ' '));
+            return sprintf('if (%s):', $this->parseCallCode($reader, ':', $max, ' ', false));
         }
         $second = $reader->indexOf(',', $first - $reader->position() + 1, $max);
-        $func = $this->parseCallCode($reader, ':', $first, ' ');
+        $func = $this->parseCallCode($reader, ':', $first, ' ', false);
         $reader->seek($first + 1);
         if ($second < 0) {
             $case = $this->parseInlineCode($reader, $max);
@@ -953,7 +954,7 @@ class ParserCompiler extends CompilerEngine {
         if ($reader->current() !== ':') {
             $reader->back();
         }
-        return sprintf('elseif (%s):', $this->parseCallCode($reader, ':', $max, ' '));
+        return sprintf('elseif (%s):', $this->parseCallCode($reader, ':', $max, ' ', false));
     }
 
     protected function parseForCall(CharReader $reader, int $max): string {
@@ -963,7 +964,7 @@ class ParserCompiler extends CompilerEngine {
         $first = $reader->indexOf(',', 0, $max);
         if ($first < 0) {
             $this->forTags[] = 'while';
-            return sprintf('while (%s):', $this->parseCallCode($reader, ':', $max, ' '));
+            return sprintf('while (%s):', $this->parseCallCode($reader, ':', $max, ' ', false));
         }
         $second = $reader->indexOf(',', $first - $reader->position() + 1, $max);
         $func =$this->parseCallCode($reader, ':', $first, ' ');
@@ -1190,10 +1191,10 @@ class ParserCompiler extends CompilerEngine {
             }
             return sprintf('request()->%s(%s)', $next, $this->parseInlineCode($reader, $max));
         }
-        if ($code !== ':') {
-            $reader->back();
-        }
-        return $this->invokeFunc('request', $this->parseInlineCode($reader, $max));
+//        if ($code !== ':') {
+//            $reader->back();
+//        }
+        return $this->invokeFunc('request', $this->parseCallCode($reader, ':', $max));
     }
 
     protected function parseUrlCall(CharReader $reader, int $max): string {

@@ -128,3 +128,39 @@
     {$a.a}            <?= $a['a'] ?>
     {=...}          输出 ... 执行结果
 
+### LIVE (待实现)
+
+不允许缓存
+
+1. 使用方法
+
+a.html
+```tpl
+a
+{.b}
+{>live}
+aaa
+{.a:}
+bbb
+{/>}
+```
+
+2. 实现原理：
+
+在模板解析阶段，分离live代码并合并生成一个关联文件
+
+a.phtml
+```php
+a
+<?= $this->b ?>
+>>section_ajdjdnkjjd<<
+```
+live_a.phtml
+```php
+<?php ob_start(); ?>
+aaa
+<?= $this->a() ?>
+bbb
+<?php $this->section['section_ajdjdnkjjd'] = ob_get_clean(); ?>
+```
+使用缓存功能时 获取 `$this->section` 进行字符串替换即可
