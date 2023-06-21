@@ -417,7 +417,7 @@ class ParserCompiler extends CompilerEngine {
             }
             if ($token === '?') {
                 if (!empty($block)) {
-                    $data[] = implode('', $block);
+                    $data[] = $this->parseWordToValue(implode('', $block));
                     $block = [];
                 }
                 $data[] = $token;
@@ -426,7 +426,7 @@ class ParserCompiler extends CompilerEngine {
             }
             if ($token === '[') {
                 if (!empty($block)) {
-                    $data[] = implode('', $block);
+                    $data[] = $this->parseWordToValue(implode('', $block));
                 }
                 $data[] = $this->parseArray($reader, $token, $max);
                 $block = [];
@@ -457,14 +457,14 @@ class ParserCompiler extends CompilerEngine {
             }
             if ($token === ' ') {
                 if (!empty($block)) {
-                    $data[] = implode('', $block);
+                    $data[] = $this->parseWordToValue(implode('', $block));
                     $block = [];
                 }
                 continue;
             }
             if ($this->isSymbol($token[0])) {
                 if (!empty($block)) {
-                    $data[] = implode('', $block);
+                    $data[] = $this->parseWordToValue(implode('', $block));
                     $block = [];
                 }
                 $data[] = $token;
@@ -473,7 +473,7 @@ class ParserCompiler extends CompilerEngine {
             $block[] = $token;
         }
         if (!empty($block)) {
-            $data[] = implode('', $block);
+            $data[] = $this->parseWordToValue(implode('', $block));
         }
         return implode(' ', $data);
     }
@@ -650,16 +650,23 @@ class ParserCompiler extends CompilerEngine {
      * @param bool $allowOperator 是否允许运算符，否则合并为字符串
      * @return string
      */
-    public function nextScope(CharReader $reader, int $max, string $endTag = '', bool $allowOperator = true): string {
+    public function nextScope(CharReader $reader, int $max,
+                              string $endTag = '',
+                              bool $allowOperator = true): string {
         if (!$allowOperator) {
-            $offset = 1;
-            $next = $reader->readChar($reader->position() + $offset);
+            $next = $reader->readChar($reader->position() + 1);
             if ($next === '') {
                 return $next;
             }
             if ($next !== '$' && $next !== ' ' && ($next === '.' || !$this->isSeparatorSymbol($next))) {
-                // 首字符不饿能为 $ ' "
-                $reader->seekOffset($offset);
+                if (!empty($endTag)) {
+                    // 出现了结束符，则，自动缩小范围
+                    $i = $reader->indexOf($endTag, 0, $max);
+                    if ($i >= 0) {
+                        $max = $i;
+                    }
+                }
+                // 首字符不能为 $ ' "
                 return $this->nextStringScope($reader, $max);
             }
         }
@@ -703,10 +710,10 @@ class ParserCompiler extends CompilerEngine {
      * @param int $max
      * @return string
      */
-    protected function nextStringScope(CharReader $reader, int $max): string {
-        $begin = $reader->position();
+    public function nextStringScope(CharReader $reader, int $max): string {
+        $begin = $reader->position() + 1;
         $data = [];
-        $comma = $reader->indexOf(',', 0, $max);
+        $comma = $reader->indexOf(',', 1, $max);
         $maxIndex = $comma > 0 ? $comma : $max;
         $eq = -1;
         if ($reader->indexOf(':$', 0, $maxIndex) < 0) {
@@ -716,7 +723,7 @@ class ParserCompiler extends CompilerEngine {
                 $maxIndex = $eq;
             }
         }
-        while ($reader->canNextUntil($maxIndex + 1)) {
+        while ($reader->canNextUntil($maxIndex)) {
             $i = $reader->indexOf(':$', 0, $maxIndex);
             if ($i < 0) {
                 $data[] = $this->parseWordToValue($reader->substr($begin, $maxIndex));
@@ -724,14 +731,14 @@ class ParserCompiler extends CompilerEngine {
                 break;
             }
             $data[] = sprintf('\'%s\'', $reader->substr($begin, $i));
-            $reader->seek($i + 1);
+            $reader->seek($i);
             $begin = $i;
-            $j = $reader->indexOf(':', 0, $maxIndex);
+            $j = $reader->indexOf(':', 1, $maxIndex);
             if ($j < 0) {
-                $data[] = '$'.$this->parseInlineCode($reader, $maxIndex);
+                $data[] = $this->parseInlineCode($reader,  $maxIndex);
                 break;
             }
-            $data[] = '$'.$this->parseInlineCode($reader, $j);
+            $data[] = $this->parseInlineCode($reader, $j);
             $begin = $j + 1;
         }
         $reader->seek($maxIndex - ($maxIndex === $eq ? 1 : 0));
@@ -865,7 +872,9 @@ class ParserCompiler extends CompilerEngine {
             if ($token === ' ') {
                 continue;
             }
-            if ($token !== '' && $isSymbolStop && $this->isOperatorSymbol($token[0])) {
+            if ($token !== '' && $isSymbolStop &&
+                ($this->isOperatorSymbol($token[0]) || $this->isBracket($token[0]))
+            ) {
                 $this->moveNextStop = true;
                 break;
             }
@@ -939,15 +948,15 @@ class ParserCompiler extends CompilerEngine {
         }
         $second = $reader->indexOf(',', $first - $reader->position() + 1, $max);
         $func = $this->parseCallCode($reader, ':', $first, ' ', false);
-        $reader->seek($first + 1);
+        // $reader->seek($first + 1);
         if ($second < 0) {
-            $case = $this->parseInlineCode($reader, $max);
+            $case = $this->parseCallCode($reader, ':', $max, ' ', false);
             return sprintf('if (%s) { echo %s; }', $func, $case);
         }
-        $case = $this->parseInlineCode($reader, $second);
-        $reader->seek($second + 1);
+        $case = $this->parseCallCode($reader, ':', $second, ' ', false);
+        // $reader->seek($second + 1);
         return sprintf('if (%s) { echo %s; } else { echo %s;}', $func, $case,
-            $this->parseInlineCode($reader, $max));
+            $this->parseCallCode($reader, ':', $max, ' ', false));
     }
 
     protected function parseElseifCall(CharReader $reader, int $max): string {
@@ -1037,9 +1046,9 @@ class ParserCompiler extends CompilerEngine {
         }
         $i = $reader->indexOf(',', 0, $max);
         if ($i < 0) {
-            return sprintf('switch(%s):', $this->parseCallCode($reader, ':', $max, ' '));
+            return sprintf('switch(%s):', $this->parseCallCode($reader, ':', $max, ' ', false));
         }
-        $func = $this->parseCallCode($reader, ':', $i, ' ');
+        $func = $this->parseCallCode($reader, ':', $i, ' ', false);
         $reader->seek($i + 1);
         $case = $this->parseInlineCode($reader, $max);
         return sprintf('switch(%s): %s case %s:', PHP_EOL, $func, $case);
@@ -1061,7 +1070,7 @@ class ParserCompiler extends CompilerEngine {
         if ($reader->current() !== ':') {
             $reader->back();
         }
-        return sprintf('case %s:', $this->parseInlineCode($reader, $max));
+        return sprintf('case %s:', $this->parseCallCode($reader, ':', $max, ' ', false));
     }
 
     protected function parseContinueCall(CharReader $reader, int $max): string {
