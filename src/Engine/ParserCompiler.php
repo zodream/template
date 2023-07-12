@@ -84,7 +84,8 @@ class ParserCompiler extends CompilerEngine {
         'tpl' => '$this->extend',
         'request' => 'request',
         'isset' => 'isset',
-        'empty' => 'empty'
+        'empty' => 'empty',
+        '__' => '__',
     ];
 
     protected array $blockTags = [];
@@ -290,6 +291,7 @@ class ParserCompiler extends CompilerEngine {
      * @return array{string, bool}
      */
     public function parseCode(CharReader $reader, int $max): array {
+        $this->moveNextStop = false; // 一定要清除
         $reader->maker();
         $code = $reader->next();
         switch ($code) {
@@ -976,11 +978,12 @@ class ParserCompiler extends CompilerEngine {
             return sprintf('while (%s):', $this->parseCallCode($reader, ':', $max, ' ', false));
         }
         $second = $reader->indexOf(',', $first - $reader->position() + 1, $max);
-        $func =$this->parseCallCode($reader, ':', $first, ' ');
+        $func = $this->parseCallCode($reader, ':', $first, ' ', false);
         $reader->seek($first);
         if ($second < 0) {
             $this->forTags[] = 'foreach';
             $case = $this->parseInlineCode($reader, $max);
+
             return sprintf('if (!empty(%s)): foreach (%s as %s):', $func, $func, $case ?: '$item');
         }
         $case = $this->parseInlineCode($reader, $max);
