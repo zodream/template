@@ -85,6 +85,9 @@ class ParserCompiler extends CompilerEngine {
         'request' => 'request',
         'isset' => 'isset',
         'empty' => 'empty',
+        'int' => 'intval',
+        'float' => 'floatval',
+        'text' => '$this->text',
         '__' => '__',
     ];
 
@@ -481,23 +484,25 @@ class ParserCompiler extends CompilerEngine {
     }
 
     /**
-     * 结束代码块
+     * 结束代码块, 此方法存在问题，可以包含不安全代码，已屏蔽
      * @return string
      */
     protected function parseEndCodeBlock(): string {
-        list($tag, $this->blockTag) = [$this->blockTag, false];
-        if ($tag == 'php' || $tag === '') {
-            return '?>';
-        }
-        if ($tag == 'js' || $tag == 'css') {
-            return sprintf(PHP_EOL.'%s;'.PHP_EOL.' $this->register%s($%s_%s);?>',
-                strtoupper($tag), ucfirst($tag), $tag,
-                $this->tplHash);
-        }
-//        if ($tag == 'text') {
-//            return '';
-//        }
+        $this->blockTag = false;
         return '';
+//        list($tag, $this->blockTag) = [$this->blockTag, false];
+//        if ($tag == 'php' || $tag === '') {
+/*            return '?>';*/
+//        }
+//        if ($tag == 'js' || $tag == 'css') {
+/*            return sprintf(PHP_EOL.'%s;'.PHP_EOL.' $this->register%s($%s_%s);?>',*/
+//                strtoupper($tag), ucfirst($tag), $tag,
+//                $this->tplHash);
+//        }
+////        if ($tag == 'text') {
+////            return '';
+////        }
+//        return '';
     }
 
     protected function parseInvokeFunc(CharReader $reader, int $max, string $func, string $tag = ':'): string {
@@ -602,6 +607,10 @@ class ParserCompiler extends CompilerEngine {
                 $reader->back();
                 break;
             }
+            if ($code === '/') {
+                $res = $this->parseComment($reader, $max);
+                return $this->currentToken = $res === false ? $code : $res;
+            }
             if ($this->isOperatorSymbol($code)) {
                 while ($reader->canNextUntil($max)) {
                     $code = $reader->next();
@@ -621,10 +630,7 @@ class ParserCompiler extends CompilerEngine {
             if ($code === "\n") {
                 return $this->currentToken = PHP_EOL;
             }
-            if ($code === '/') {
-                $res = $this->parseComment($reader, $max);
-                return $this->currentToken = $res === false ? $code : $res;
-            }
+
 //            if ($code === ':' || $code === '(') {
 //                // TODO 方法
 //                $func = $reader->substr($i, $reader->position());
@@ -732,7 +738,7 @@ class ParserCompiler extends CompilerEngine {
                 $reader->seek($maxIndex);
                 break;
             }
-            $data[] = sprintf('\'%s\'', $reader->substr($begin, $i));
+            $data[] = var_export($reader->substr($begin, $i), true);
             $reader->seek($i);
             $begin = $i;
             $j = $reader->indexOf(':', 1, $maxIndex);
@@ -937,7 +943,7 @@ class ParserCompiler extends CompilerEngine {
         if ($val[0] === '$') {
             return $val;
         }
-        return sprintf('\'%s\'', $val);
+        return var_export($val, true);
     }
 
     protected function parseIfCall(CharReader $reader, int $max): string {
@@ -1137,9 +1143,8 @@ class ParserCompiler extends CompilerEngine {
         }
         $text = $reader->substr($max + 1, $end - 1);
         $reader->seek($end + strlen($endTag));
-        return sprintf('$plain_%s = <<<%s%s%s%s%s;%s $this->register%s($plain_%s);',
-            $this->tplHash, $tag, PHP_EOL,
-            $text, PHP_EOL, $tag, PHP_EOL, ucfirst(strtolower($tag)), $this->tplHash);
+        return sprintf('$this->register%s(%s);',
+            ucfirst(strtolower($tag)), var_export($text, true));
     }
 
     protected function parseCssCall(CharReader $reader, int $max): string {
