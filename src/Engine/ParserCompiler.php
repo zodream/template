@@ -1168,10 +1168,10 @@ class ParserCompiler extends CompilerEngine {
                 return '';
             }
         }
-        if (str_ends_with($oldContent, '.js')) {
+        if (Str::isPathEndWith($oldContent, '.js')) {
             return $this->parseLoadFile('js', $content);
         }
-        if (str_ends_with($oldContent, '.css')) {
+        if (Str::isPathEndWith($oldContent, '.css')) {
             return $this->parseLoadFile('css', $content);
         }
         return '';

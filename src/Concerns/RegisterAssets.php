@@ -3,6 +3,7 @@ declare(strict_types=1);
 namespace Zodream\Template\Concerns;
 
 use Zodream\Helpers\Arr;
+use Zodream\Helpers\Str;
 use Zodream\Infrastructure\Support\Html;
 use Zodream\Template\AssetFile;
 use Zodream\Template\View;
@@ -93,11 +94,21 @@ trait RegisterAssets {
         if (str_starts_with($file, './')) {
             return url($file, true, false);
         }
-        $ext = pathinfo($file, PATHINFO_EXTENSION);
-        if (str_starts_with($file, '@') && ($ext == 'js' || $ext == 'css')) {
-            $file = $ext.'/'. substr($file, 1);
-        }
+        $file = $this->repairAssetFolder($file);
         return url()->asset($this->assetsDirectory.$file);
+    }
+
+    protected function repairAssetFolder(string $file): string {
+        if (!str_starts_with($file, '@')) {
+            return $file;
+        }
+        if (Str::isPathEndWith($file, '.js')) {
+            return sprintf('js/%s',  substr($file, 1));
+        }
+        if (Str::isPathEndWith($file, '.css')) {
+            return sprintf('css/%s',  substr($file, 1));
+        }
+        return $file;
     }
 
     /**
