@@ -6,20 +6,25 @@ use Zodream\Helpers\Arr;
 use Zodream\Helpers\Str;
 use Zodream\Infrastructure\Support\Html;
 use Zodream\Template\AssetFile;
+use Zodream\Template\AssetHelper;
 use Zodream\Template\View;
 use Exception;
 
 trait RegisterAssets {
 
-    protected array $registerAssets = [
-        'metaTags' => [],
-        'linkTags' => [],
-        'js' => [],
-        'jsFiles' => [],
-        'css' => [],
-        'cssFiles' => []
+    /** @var array layout 之前注册的数据 */
+    protected array $lastRegisterAssets = [];
+
+    /**
+     * @var array 全局数据
+     */
+    protected array $globeRegisterAssets = [
     ];
 
+    /**
+     * 当前页数据
+     * @var array
+     */
     protected array $currentRegisterAssets = [
         'metaTags' => [],
         'linkTags' => [],
@@ -116,34 +121,35 @@ trait RegisterAssets {
      * @param bool $append
      * @return $this
      */
-    protected function moveRegisterAssets(bool $append = true) {
-        foreach ($this->currentRegisterAssets as $key => $item) {
-            if (empty($item)) {
-                continue;
-            }
-            $this->registerAssets[$key] = $this->mergeAssets($this->registerAssets[$key], $item, $append);
-            $this->currentRegisterAssets[$key] = [];
+    protected function transferAssetToGlobe(bool $append = true): static {
+        if (AssetHelper::isEmpty($this->currentRegisterAssets)) {
+            return $this;
+        }
+        $this->globeRegisterAssets = AssetHelper::merge($this->globeRegisterAssets, $this->currentRegisterAssets, $append);
+        $this->currentRegisterAssets = AssetHelper::clear($this->currentRegisterAssets);
+        return $this;
+    }
+
+    protected function transferAssetToLast(): static {
+        if (!AssetHelper::isEmpty($this->currentRegisterAssets)) {
+            $this->lastRegisterAssets = AssetHelper::merge($this->globeRegisterAssets, $this->currentRegisterAssets, true);
+            $this->currentRegisterAssets = AssetHelper::clear($this->currentRegisterAssets);
+        } else if (!AssetHelper::isEmpty($this->globeRegisterAssets)) {
+            $this->lastRegisterAssets = $this->globeRegisterAssets;
+            $this->globeRegisterAssets = [];
         }
         return $this;
     }
 
-    protected function mergeAssets(array $base, array $args, bool $append) {
-        if (empty($base)) {
-            return $args;
+    protected function transferAssetComplete(bool $complete = true): array {
+        if (!$complete) {
+            return $this->lastRegisterAssets;
         }
-        foreach ($args as $key => $item) {
-            if (!isset($base[$key])) {
-                $base[$key] = $item;
-                continue;
-            }
-            if (!is_array($item) || !is_array($base[$key])) {
-                continue;
-            }
-            $base[$key] = $append
-                ? array_merge($base[$key], $item)
-                : array_merge($item, $base[$key]);
+        $this->transferAssetToGlobe(true);
+        if (!AssetHelper::isEmpty($this->lastRegisterAssets)) {
+            return AssetHelper::merge($this->globeRegisterAssets, $this->lastRegisterAssets, true);
         }
-        return $base;
+        return $this->globeRegisterAssets;
     }
 
     /**
@@ -256,49 +262,51 @@ trait RegisterAssets {
     }
 
     public function header(bool $complete = true) {
-        if ($complete) {
-            $this->moveRegisterAssets(false);
-        }
-        return $this->renderHeader();
+        return $this->renderHeader($this->transferAssetComplete($complete));
     }
 
     public function footer(bool $complete = true) {
-        if ($complete) {
-            $this->moveRegisterAssets(false);
-        }
-        return $this->renderFooter();
+        return $this->renderFooter($this->transferAssetComplete($complete));
     }
 
     protected function clearAssets() {
-        $this->registerAssets = $this->currentRegisterAssets = [
-            'metaTags' => [],
-            'linkTags' => [],
-            'js' => [],
-            'jsFiles' => [],
-            'css' => [],
-            'cssFiles' => []
-        ];
-        $this->sections = [];
+        $this->globeRegisterAssets = $this->lastRegisterAssets = $this->sections = [];
+        $this->currentRegisterAssets = AssetHelper::clear($this->currentRegisterAssets);
     }
 
     /**
      * @return string
      */
-    protected function renderFooter(): string {
+    protected function renderFooter(array $assetItems): string {
         $lines = [];
-        if (!empty($this->registerAssets['jsFiles'][View::HTML_FOOT])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['jsFiles'][View::HTML_FOOT]);
-        }
-        if (!empty($this->registerAssets['js'][View::HTML_FOOT])) {
-            $lines[] = Html::script(implode(PHP_EOL, $this->registerAssets['js'][View::HTML_FOOT]), ['type' => 'text/javascript']);
-        }
-        if (!empty($this->registerAssets['js'][View::JQUERY_READY])) {
-            $js = "jQuery(document).ready(function () {\n" . implode("\n", $this->registerAssets['js'][View::JQUERY_READY]) . "\n});";
-            $lines[] = Html::script($js, ['type' => 'text/javascript']);
-        }
-        if (!empty($this->registerAssets['js'][View::JQUERY_LOAD])) {
-            $js = "jQuery(window).load(function () {\n" . implode("\n", $this->registerAssets['js'][View::JQUERY_LOAD]) . "\n});";
-            $lines[] = Html::script($js, ['type' => 'text/javascript']);
+        foreach ([
+                     'jsFiles',
+                     'js'
+                 ] as $tag) {
+            if (empty($assetItems[$tag])) {
+                continue;
+            }
+            foreach ([
+                         View::HTML_FOOT,
+                         View::JQUERY_READY,
+                         View::JQUERY_LOAD
+                     ] as $order) {
+                if (empty($assetItems[$tag][$order])) {
+                    continue;
+                }
+                $items = $assetItems[$tag][$order];
+                if ($tag !== 'js') {
+                    $lines[] = implode(PHP_EOL, $items);
+                    continue;
+                }
+                $js = implode("\n", $items);
+                if ($order === View::JQUERY_READY) {
+                    $js = "jQuery(document).ready(function () {\n" . $js . "\n});";
+                } elseif ($order === View::JQUERY_LOAD) {
+                    $js = "jQuery(window).load(function () {\n" . $js . "\n});";
+                }
+                $lines[] = Html::script($js, ['type' => 'text/javascript']);
+            }
         }
         return empty($lines) ? '' : implode(PHP_EOL, $lines);
     }
@@ -306,27 +314,27 @@ trait RegisterAssets {
     /**
      * @return string
      */
-    protected function renderHeader(): string {
+    protected function renderHeader(array $assetItems): string {
         $lines = [];
-        if (!empty($this->registerAssets['metaTags'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['metaTags']);
+        foreach ([
+                     'metaTags',
+                     'linkTags',
+                     'cssFiles',
+                     'css',
+                     'jsFiles',
+                     'js'
+                 ] as $tag) {
+            if (empty($assetItems[$tag])) {
+                continue;
+            }
+            $isScript = str_starts_with($tag, 'js');
+            if ($isScript && empty($assetItems[$tag][View::HTML_HEAD])) {
+                continue;
+            }
+            $items = $isScript ? $assetItems[$tag][View::HTML_HEAD] : $assetItems[$tag];
+            $lines[] = $tag === 'js' ? Html::script(implode(PHP_EOL,
+                $items), ['type' => 'text/javascript']) : implode(PHP_EOL, $items);
         }
-        if (!empty($this->registerAssets['linkTags'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['linkTags']);
-        }
-        if (!empty($this->registerAssets['cssFiles'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['cssFiles']);
-        }
-        if (!empty($this->registerAssets['css'])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['css']);
-        }
-        if (!empty($this->registerAssets['jsFiles'][View::HTML_HEAD])) {
-            $lines[] = implode(PHP_EOL, $this->registerAssets['jsFiles'][View::HTML_HEAD]);
-        }
-        if (!empty($this->registerAssets['js'][View::HTML_HEAD])) {
-            $lines[] = Html::script(implode(PHP_EOL, $this->registerAssets['js'][View::HTML_HEAD]), ['type' => 'text/javascript']);
-        }
-
         return empty($lines) ? '' : implode(PHP_EOL, $lines);
     }
 }

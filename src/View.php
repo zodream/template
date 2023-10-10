@@ -109,7 +109,7 @@ class View {
      * @return mixed|null|string
      * @throws \Exception
      */
-    public function renderWithData(array $data = [], callable $callback = null) {
+    public function renderWithData(array $data = [], callable $callback = null): mixed {
         try {
             $contents = $this->renderContent($data);
             $response = isset($callback) ? call_user_func($callback, $this, $contents) : null;
@@ -125,7 +125,7 @@ class View {
      * @throws Exception
      * @throws FileException
      */
-    protected function renderContent(array $renderOnlyData = []) {
+    protected function renderContent(array $renderOnlyData = []): string {
         if (!$this->sourceFile->exist()) {
             throw new FileException(
                 __('{file} not exist!', [
@@ -145,7 +145,7 @@ class View {
      * @return string
      * @throws Exception
      */
-    protected function renderFile(string $renderViewFile, array $renderViewData) {
+    protected function renderFile(string $renderViewFile, array $renderViewData): string {
         $obLevel = ob_get_level();
         ob_start();
         extract($renderViewData, EXTR_SKIP);
@@ -169,7 +169,7 @@ class View {
      *
      * @throws $e
      */
-    protected function handleViewException(\Exception $e, int $obLevel) {
+    protected function handleViewException(\Exception $e, int $obLevel): void {
         while (ob_get_level() > $obLevel) {
             ob_end_clean();
         }
@@ -181,9 +181,9 @@ class View {
      * @param integer|string|null $time
      * @return string
      */
-    public function time(mixed $time = null) {
+    public function time(mixed $time = null): string {
         if (is_null($time)) {
-            return null;
+            return '';
         }
         return Time::format($time);
     }
@@ -193,7 +193,7 @@ class View {
      * @param int|string $time
      * @return string
      */
-    public function ago(int|string $time) {
+    public function ago(int|string $time): string {
         if (is_string($time) && (str_contains($time, '-') || str_contains($time, ':'))) {
             return Time::ago(strtotime($time));
         }
@@ -208,7 +208,7 @@ class View {
      * @return mixed
      * @throws Exception
      */
-    public function t(string $message, array $param = [], ?string $name = null) {
+    public function t(string $message, array $param = [], ?string $name = null): mixed {
         return trans($message, $param, $name);
     }
 
@@ -218,7 +218,7 @@ class View {
      * @param int $length
      * @return string
      */
-    public function text(mixed $html, int $length = 0) {
+    public function text(mixed $html, int $length = 0): string {
         return Html::text((string)$html, $length);
     }
 
@@ -231,7 +231,8 @@ class View {
      * @return string
      * @throws Exception
      */
-    public function url(mixed $file = null, array|bool $extra = [], bool $encode = true, ?bool $secure = null) {
+    public function url(mixed $file = null, array|bool $extra = [], bool $encode = true,
+                        ?bool $secure = null): string {
         if (is_bool($extra)) {
             list($extra, $encode) = [[], $extra];
         }
@@ -244,7 +245,7 @@ class View {
      * @return string
      * @throws Exception
      */
-    public function asset(mixed $file) {
+    public function asset(mixed $file): string {
         return $this->url($this->factory->getAssetUri($file));
     }
 

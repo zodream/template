@@ -203,7 +203,7 @@ class ViewFactory extends MagicObject {
      * @throws FileException
      * @throws \Exception
      */
-    protected function renderView(File|string $file) {
+    protected function renderView(File|string $file): View {
         if (!$file instanceof File && is_file($file)) {
             $file = new File($file);
         }
@@ -251,6 +251,7 @@ class ViewFactory extends MagicObject {
         }
         $layoutData = $this->merge($data);
         $layoutData['content'] = $content;
+        $this->transferAssetToLast();
         return $this->renderJust($layout, $layoutData);
     }
 
@@ -315,7 +316,7 @@ class ViewFactory extends MagicObject {
      * @throws \Exception
      */
     public function getView($file) {
-        return $this->moveRegisterAssets()
+        return $this->transferAssetToGlobe()
             ->renderView($file);
     }
 
