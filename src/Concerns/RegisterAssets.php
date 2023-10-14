@@ -134,6 +134,7 @@ trait RegisterAssets {
         if (!AssetHelper::isEmpty($this->currentRegisterAssets)) {
             $this->lastRegisterAssets = AssetHelper::merge($this->globeRegisterAssets, $this->currentRegisterAssets, true);
             $this->currentRegisterAssets = AssetHelper::clear($this->currentRegisterAssets);
+            $this->globeRegisterAssets = [];
         } else if (!AssetHelper::isEmpty($this->globeRegisterAssets)) {
             $this->lastRegisterAssets = $this->globeRegisterAssets;
             $this->globeRegisterAssets = [];
