@@ -13,6 +13,7 @@ use Zodream\Disk\FileException;
 use Zodream\Helpers\Html;
 use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
+use Zodream\Infrastructure\Error\TemplateException;
 use Zodream\Template\Concerns\ConditionTrait;
 use Exception;
 use Zodream\Template\Events\ViewRendered;
@@ -173,7 +174,10 @@ class View {
         while (ob_get_level() > $obLevel) {
             ob_end_clean();
         }
-        throw $e;
+        throw $e instanceof TemplateException ? $e : new TemplateException(
+            $this->file,
+            $this->sourceFile,
+            $e->getMessage(), $e->getCode(), $e);
     }
 
     /**
