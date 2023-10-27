@@ -11,7 +11,6 @@ namespace Zodream\Template;
 use Zodream\Disk\File;
 use Zodream\Disk\FileException;
 use Zodream\Helpers\Html;
-use Zodream\Http\Uri;
 use Zodream\Helpers\Time;
 use Zodream\Infrastructure\Error\TemplateException;
 use Zodream\Template\Concerns\ConditionTrait;
@@ -42,55 +41,54 @@ class View {
 
     const JQUERY_LOAD = 'jquery load';
     const JQUERY_READY = 'jquery ready';
+    const LAYOUT_CONTENTS = '__layouts_contents';
 
     /**
+     * 具体执行的文件
      * @var File
      */
-    protected $file;
+    protected ?File $file;
 
     /**
+     * 原始文件
      * @var File
      */
-    protected $sourceFile;
+    protected ?File $sourceFile;
 
-    /**
-     * @var ViewFactory
-     */
-    protected $factory;
-    
-    public function __construct($factory, $file = null, $sourceFile = null) {
-        $this->factory = $factory;
-        if (!empty($file)) {
-            $this->setFile($file, $sourceFile);
-        }
-    }
-
-    /**
-     * SET FILE
-     * @param File|string $file
-     * @param File|null $sourceFile
-     * @return $this
-     */
-    public function setFile(mixed $file, ?File $sourceFile = null) {
+    public function __construct(
+                                protected ViewFactory $factory,
+                                mixed $file = null, ?File $sourceFile = null) {
         if (!$file instanceof File) {
             $file = new File($file);
         }
         $this->file = $file;
         $this->sourceFile = empty($sourceFile) ? $file : $sourceFile;
+    }
+
+    /**
+     * SET Source FILE
+     * @param File|string $file
+     * @return $this
+     */
+    public function setFile(mixed $file): static {
+        if (!$file instanceof File) {
+            $file = new File($file);
+        }
+        $this->sourceFile = $file;
         return $this;
     }
 
     /**
      * @return File
      */
-    public function getFile() {
+    public function getFile(): File {
         return $this->file;
     }
 
     /**
      * @return File
      */
-    public function getSourceFile() {
+    public function getSourceFile(): File {
         return $this->sourceFile;
     }
 
@@ -111,13 +109,9 @@ class View {
      * @throws \Exception
      */
     public function renderWithData(array $data = [], callable $callback = null): mixed {
-        try {
-            $contents = $this->renderContent($data);
-            $response = isset($callback) ? call_user_func($callback, $this, $contents) : null;
-            return !is_null($response) ? $response : $contents;
-        } catch (Exception $e) {
-            throw $e;
-        }
+        $contents = $this->renderContent($data);
+        $response = isset($callback) ? call_user_func($callback, $this, $contents) : null;
+        return !is_null($response) ? $response : $contents;
     }
 
     /**
@@ -127,16 +121,18 @@ class View {
      * @throws FileException
      */
     protected function renderContent(array $renderOnlyData = []): string {
-        if (!$this->sourceFile->exist()) {
+        if (!$this->file->exist()) {
             throw new FileException(
                 __('{file} not exist!', [
-                    'file' => $this->sourceFile
+                    'file' => $this->file
                 ])
             );
         }
         $start = Time::millisecond();
-        $result = $this->renderFile((string)$this->sourceFile, $this->factory->merge($renderOnlyData));
-        event(new ViewRendered($this->file, $this, Time::elapsedTime($start)));
+        $result = $this->renderFile((string)$this->file, $this->factory->merge($renderOnlyData));
+        event(new ViewRendered($this->sourceFile, $this->file,
+            $this,
+            Time::elapsedTime($start)));
         return $result;
     }
 
@@ -147,6 +143,7 @@ class View {
      * @throws Exception
      */
     protected function renderFile(string $renderViewFile, array $renderViewData): string {
+        unset($renderViewData[static::LAYOUT_CONTENTS]);
         $obLevel = ob_get_level();
         ob_start();
         extract($renderViewData, EXTR_SKIP);
@@ -175,8 +172,8 @@ class View {
             ob_end_clean();
         }
         throw $e instanceof TemplateException ? $e : new TemplateException(
-            $this->file,
             $this->sourceFile,
+            $this->file,
             $e->getMessage(), $e->getCode(), $e);
     }
 
@@ -293,6 +290,17 @@ class View {
             echo $this->renderPart((string)$item, $data);
         }
         return $this;
+    }
+
+    /**
+     * 获取其他组件共享过来的内容
+     * @return string
+     */
+    public function contents(): string {
+        if ($this->factory->has(static::LAYOUT_CONTENTS)) {
+            return (string)$this->factory->get(static::LAYOUT_CONTENTS);
+        }
+        return '';
     }
 
     /**

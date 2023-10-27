@@ -383,12 +383,37 @@ class ParserCompiler extends CompilerEngine {
             if ($line === '') {
                 continue;
             }
-            if (str_contains($line, '=')) {
+            if ($this->isAssignCode($line)) {
                 $isEcho = false;
             }
             $data[] = $line;
         }
         return [implode('', $data), $isEcho];
+    }
+
+    /**
+     * 判断语句是否是赋值语句
+     * @param string $line
+     * @return bool
+     */
+    protected function isAssignCode(string $line): bool {
+        $i = -1;
+        $max = strlen($line) - 1;
+        while (true) {
+            $i = strpos($line, '=', $i + 1);
+            if ($i === false) {
+                break;
+            }
+            if ($i === $max) {
+                return true;
+            }
+            if (substr($line, $i + 1, 1) === '>') {
+                $i ++;
+                continue;
+            }
+            return true;
+        }
+        return false;
     }
 
     protected function parseBlockCode(CharReader $reader, int $max): string {

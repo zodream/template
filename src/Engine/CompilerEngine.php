@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template\Engine;
 
 /**
@@ -15,11 +16,11 @@ abstract class CompilerEngine implements ITemplateEngine {
     /**
      * @var ViewFactory
      */
-    protected $factory;
+    protected ?ViewFactory $factory;
     /**
      * @var File
      */
-    protected $file;
+    protected ?File $file;
 
     /**
      * 不允许直接打开视图缓存文件
@@ -27,7 +28,7 @@ abstract class CompilerEngine implements ITemplateEngine {
      */
     const DIE_HEADER = "defined('APP_DIR') or exit();\r\nuse Zodream\Template\View;\r\n/** @var \$this View */";
     // 初始化头部
-    protected $headers = [
+    protected array $headers = [
         self::DIE_HEADER
     ];
 
@@ -43,7 +44,7 @@ abstract class CompilerEngine implements ITemplateEngine {
      * @param array|string $lines
      * @return $this
      */
-    public function addHeader(array|string $lines) {
+    public function addHeader(array|string $lines): static {
         $this->headers = array_merge($this->headers, (array)$lines);
         return $this;
     }
@@ -51,7 +52,7 @@ abstract class CompilerEngine implements ITemplateEngine {
     /**
      * 初始化头部
      */
-    protected function initHeaders() {
+    protected function initHeaders(): void {
         $this->headers = [
             self::DIE_HEADER
         ];
@@ -64,7 +65,7 @@ abstract class CompilerEngine implements ITemplateEngine {
      *
      * @return string
      */
-    protected function compileHeaders() {
+    protected function compileHeaders(): string {
         return '<?php'.PHP_EOL.implode(PHP_EOL, $this->headers).PHP_EOL.'?>'.PHP_EOL;
     }
 

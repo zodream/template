@@ -221,7 +221,7 @@ class ViewFactory extends MagicObject {
                 $this->engine->compileFile($file, $cacheFile);
                 event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));
             }
-            return new View($this, $file, $cacheFile);
+            return new View($this, $cacheFile, $file);
         }
         if ($this->engine instanceof ITemplateCompiler) {
             /** IF IT HAS ENGINE*/
@@ -231,7 +231,7 @@ class ViewFactory extends MagicObject {
                 $cacheFile->write($this->engine->compile($file->read()));
                 event(new ViewCompiled($file, $cacheFile, Time::elapsedTime($start)));
             }
-            return new View($this, $file, $cacheFile);
+            return new View($this, $cacheFile, $file);
         }
         return new View($this, $file);
     }
@@ -250,7 +250,7 @@ class ViewFactory extends MagicObject {
             return $content;
         }
         $layoutData = $this->merge($data);
-        $layoutData['content'] = $content;
+        $this->set(View::LAYOUT_CONTENTS, $content);
         $this->transferAssetToLast();
         return $this->renderJust($layout, $layoutData);
     }
@@ -271,6 +271,7 @@ class ViewFactory extends MagicObject {
             }
             return $content;
         }
+        unset($data[View::LAYOUT_CONTENTS]);
         $this->setAttribute($data);
         return $this->getView(empty($file) ? $this->defaultFile : $file)
             ->renderWithData($data, $callback);
