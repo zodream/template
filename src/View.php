@@ -150,10 +150,8 @@ class View {
         try {
             include $renderViewFile;
             /*eval('?>'.$content);*/
-        } catch (\Exception $e) {
-            $this->handleViewException($e, $obLevel);
         } catch (\Throwable $e) {
-            $this->handleViewException(new \Exception($e->getMessage(), $e->getCode(), $e), $obLevel);
+            $this->handleViewException($e, $obLevel);
         }
         return ltrim(ob_get_clean());
     }
@@ -167,14 +165,14 @@ class View {
      *
      * @throws $e
      */
-    protected function handleViewException(\Exception $e, int $obLevel): void {
+    protected function handleViewException(\Throwable $e, int $obLevel): void {
         while (ob_get_level() > $obLevel) {
             ob_end_clean();
         }
         throw $e instanceof TemplateException ? $e : new TemplateException(
             $this->sourceFile,
             $this->file,
-            $e->getMessage(), $e->getCode(), $e);
+            $e->getMessage(), (int)$e->getCode(), $e);
     }
 
     /**
@@ -269,11 +267,11 @@ class View {
             return $this->factory->invokeTheme('getFile', [substr($name, 1)]);
         }
         if (str_starts_with($name, './')) {
-            return $this->file->getDirectory()
+            return $this->sourceFile->getDirectory()
                 ->getFile($this->factory->fileSuffix(substr($name, 2)));
         }
         if (str_starts_with($name, '../')) {
-            return $this->file->getDirectory()->parent()
+            return $this->sourceFile->getDirectory()->parent()
                 ->getFile($this->factory->fileSuffix($name));
         }
         return $name;

@@ -301,9 +301,15 @@ class ParserCompiler extends CompilerEngine {
         $code = $reader->next();
         switch ($code) {
             case '=':
-                $reader->seekOffset(1);
-                $reader->back();
-                return [$this->parseInlineCode($reader, $max), true];
+                $isFormat = false;
+                if ($reader->nextIs('=') === 0) {
+                    $reader->seekOffset(1);
+                    $isFormat = true;
+                }
+                $value = $this->parseInlineCode($reader, $max);
+                return [
+                    $isFormat ? sprintf('$this->text(%s)', $value) : $value
+                    , true];
             case '>':
                 $tags = ['text', 'css', 'js'];
                 $j = $reader->nextIs(...$tags);
@@ -435,8 +441,7 @@ class ParserCompiler extends CompilerEngine {
         return implode(PHP_EOL, $data);
     }
 
-    public function parseInlineCode(CharReader $reader, int $max): string
-    {
+    public function parseInlineCode(CharReader $reader, int $max): string {
         $data = [];
         $block = [];
         while ($reader->canNextUntil($max)) {
@@ -723,7 +728,7 @@ class ParserCompiler extends CompilerEngine {
         if ($first === '$') {
             $next = $this->nextToken($reader, $max);
             if ($next !== '.' && $next !== '[') {
-                $this->moveNextStop = $endTag !== $next;
+                $this->moveNextStop = true;
                 return $token;
             }
             if ($next === '.' && $this->isArrayOrCall($reader, $max)) {
@@ -983,13 +988,13 @@ class ParserCompiler extends CompilerEngine {
                 $this->parseCallCode($reader, ':', $max, ' ', false, false));
         }
         $second = $reader->indexOf(',', $first - $reader->position() + 1, $max);
-        $func = $this->parseCallCode($reader, ':', $first, ' ', false, false);
+        $func = $this->parseCallCode($reader, ':', $first + 1, ' ', false, false);
         // $reader->seek($first + 1);
         if ($second < 0) {
             $case = $this->parseCallCode($reader, ':', $max, ' ', false);
             return sprintf('if (%s) { echo %s; }', $func, $case);
         }
-        $case = $this->parseCallCode($reader, ':', $second, ' ', false);
+        $case = $this->parseCallCode($reader, ':', $second + 1, ' ', false);
         // $reader->seek($second + 1);
         return sprintf('if (%s) { echo %s; } else { echo %s;}', $func, $case,
             $this->parseCallCode($reader, ':', $max, ' ', false));
