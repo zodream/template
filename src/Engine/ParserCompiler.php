@@ -105,7 +105,7 @@ class ParserCompiler extends CompilerEngine {
      * @param string $end
      * @return $this
      */
-    public function setTag(string $begin, string $end) {
+    public function setTag(string $begin, string $end): static {
         $this->beginTag = $begin;
         $this->endTag = $end;
         return $this;
@@ -158,7 +158,7 @@ class ParserCompiler extends CompilerEngine {
     }
 
 
-    public function parseFile(File $file) {
+    public function parseFile(File $file): string {
         return $this->parse($file->read());
     }
 
@@ -792,7 +792,7 @@ class ParserCompiler extends CompilerEngine {
      * @return bool true 为方法调用
      */
     protected function isArrayOrCall(CharReader $reader, int $max): bool {
-        list($i, $j) = $reader->minIndex(':', ' ', ',');
+        list($i, $j) = $reader->minIndex(':', ' ', ',', '\'', '?', '=', '[', '(', '<', '>', '%');
         return $j === 0 && $i < $max;
     }
 
@@ -816,8 +816,7 @@ class ParserCompiler extends CompilerEngine {
      * @param string $code
      * @return bool
      */
-    protected function isSymbol(string $code): bool
-    {
+    protected function isSymbol(string $code): bool {
         if ($this->isOperatorSymbol($code)) {
             return true;
         }
@@ -950,13 +949,13 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseString(CharReader $reader, string $tag, int $max): string {
-        $i = $reader->indexOf($tag, 1, $max);
+        $i = $reader->indexOf($tag, 0, $max);
         if ($i < 0) {
             $i = $max;
         }
         $res = $reader->substr($i);
         $reader->seek($i);
-        return sprintf('%s%s%s', $tag, $res, $tag);
+        return var_export($res, true);//sprintf('%s%s%s', $tag, $res, $tag);
     }
 
     protected function parseWordToValue(string $val): string {
