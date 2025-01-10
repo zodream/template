@@ -978,7 +978,7 @@ class ParserCompilerBak extends CompilerEngine {
      * @param string $content
      * @return string|null
      */
-    protected function parseBlock(string $content): ?string {
+    protected function parseBlock(string $content): string|null {
         if ($content == '' || $content == 'php') {
             $this->blockTag = 'php';
             return '<?php ';

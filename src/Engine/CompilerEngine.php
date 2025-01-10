@@ -16,11 +16,11 @@ abstract class CompilerEngine implements ITemplateEngine {
     /**
      * @var ViewFactory
      */
-    protected ?ViewFactory $factory;
+    protected ViewFactory|null $factory;
     /**
      * @var File
      */
-    protected ?File $file;
+    protected File|null $file;
 
     /**
      * 不允许直接打开视图缓存文件
@@ -32,7 +32,7 @@ abstract class CompilerEngine implements ITemplateEngine {
         self::DIE_HEADER
     ];
 
-    public function __construct(ViewFactory $factory = null) {
+    public function __construct(ViewFactory|null $factory = null) {
         if (empty($factory)) {
             return;
         }

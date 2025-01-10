@@ -9,7 +9,7 @@ trait RegisterTheme {
     /**
      * @var ITheme|null
      */
-    protected ?ITheme $theme = null;
+    protected ITheme|null $theme = null;
 
 
     public function registerTheme(string|ITheme $theme) {

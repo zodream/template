@@ -48,17 +48,17 @@ class View {
      * 具体执行的文件
      * @var File
      */
-    protected ?File $file;
+    protected File|null $file;
 
     /**
      * 原始文件
      * @var File
      */
-    protected ?File $sourceFile;
+    protected File|null $sourceFile;
 
     public function __construct(
                                 protected ViewFactory $factory,
-                                mixed $file = null, ?File $sourceFile = null) {
+                                mixed $file = null, File|null $sourceFile = null) {
         if (!$file instanceof File) {
             $file = new File($file);
         }
@@ -99,7 +99,7 @@ class View {
      * @return string
      * @throws \Exception
      */
-    public function render(callable $callback = null) {
+    public function render(callable|null $callback = null) {
         return $this->renderWithData([], $callback);
     }
 
@@ -109,7 +109,7 @@ class View {
      * @return mixed|null|string
      * @throws \Exception
      */
-    public function renderWithData(array $data = [], callable $callback = null): mixed {
+    public function renderWithData(array $data = [], callable|null $callback = null): mixed {
         $contents = $this->renderContent($data);
         $response = isset($callback) ? call_user_func($callback, $this, $contents) : null;
         return !is_null($response) ? $response : $contents;
@@ -208,7 +208,7 @@ class View {
      * @return mixed
      * @throws Exception
      */
-    public function t(string $message, array $param = [], ?string $name = null): mixed {
+    public function t(string $message, array $param = [], string|null $name = null): mixed {
         return trans($message, $param, $name);
     }
 
@@ -232,7 +232,7 @@ class View {
      * @throws Exception
      */
     public function url(mixed $file = null, array|bool $extra = [], bool $encode = true,
-                        ?bool $secure = null): string {
+                        bool|null $secure = null): string {
         if (is_bool($extra)) {
             list($extra, $encode) = [[], $extra];
         }
@@ -321,17 +321,17 @@ class View {
      * @param string|null $key
      * @return View
      */
-    public function registerMetaTag(string $content, array $options = array(), ?string $key = null) {
+    public function registerMetaTag(string $content, array $options = array(), string|null $key = null) {
         $this->factory->registerMetaTag($content, $options, $key);
         return $this;
     }
 
-    public function registerLinkTag(mixed $url, array $options = array(), ?string $key = null) {
+    public function registerLinkTag(mixed $url, array $options = array(), string|null $key = null) {
         $this->factory->registerLinkTag($url, $options, $key);
         return $this;
     }
 
-    public function registerCss(string $css, ?string $key = null) {
+    public function registerCss(string $css, string|null $key = null) {
         $this->factory->registerCss($css, $key);
         return $this;
     }
@@ -341,7 +341,7 @@ class View {
         return $this;
     }
 
-    public function registerJs(string $js, string $position = self::HTML_FOOT, ?string $key = null) {
+    public function registerJs(string $js, string $position = self::HTML_FOOT, string|null $key = null) {
         $this->factory->registerJs($js, $position, $key);
         return $this;
     }

@@ -142,7 +142,7 @@ class ViewFactory extends MagicObject {
      * @param ITemplateCompiler|ITemplateExecutor|string $engine
      * @return ViewFactory
      */
-    public function setEngine(ITemplateCompiler|ITemplateExecutor|string $engine, ?bool $cacheable = null) {
+    public function setEngine(ITemplateCompiler|ITemplateExecutor|string $engine, bool|null $cacheable = null) {
         if (is_bool($cacheable)) {
             $this->templateCacheable = $cacheable;
         }
@@ -243,7 +243,7 @@ class ViewFactory extends MagicObject {
      * @param callable|null $callback
      * @return string
      */
-    public function render(string|File $file, array $data = [], ?callable $callback = null): mixed {
+    public function render(string|File $file, array $data = [], callable|null $callback = null): mixed {
         $content = $this->renderJust(empty($file) ? $this->defaultFile : $file, $data, $callback);
         $layout = $this->findLayoutFile();
         if (empty($layout)) {
@@ -263,7 +263,7 @@ class ViewFactory extends MagicObject {
      * @return mixed|string|null
      * @throws FileException
      */
-    public function renderJust(string|File $file, array $data = [], ?callable $callback = null): mixed {
+    public function renderJust(string|File $file, array $data = [], callable|null $callback = null): mixed {
         if ($this->engine instanceof ITemplateExecutor) {
             $content = $this->engine->execute((string)$file, $this->merge($data));
             if (!empty($callback)) {
