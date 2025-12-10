@@ -13,12 +13,12 @@
         }
     ],
     "require": {
-        "php": ">=8.2",
-        "zodream/zodream": "^5.3",
-        "zodream/helpers": "^5.3"
+        "php": ">=8.5",
+        "zodream/zodream": "dev-master",
+        "zodream/helpers": "dev-master"
     },
     "require-dev": {
-        "twig/twig": "^v3.8.0"
+        "twig/twig": "^v3.22.1"
     },
     "autoload": {
         "psr-4": {
