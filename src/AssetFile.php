@@ -38,7 +38,7 @@ class AssetFile extends File {
     protected function getRealFile(){
         $root = public_path();
         $script = app_path();
-        if ($root->isParent($this->directory)) {
+        if ($root->isChildOf($this->directory)) {
             $this->realFile = $this->fullName;
             $this->url = $this->getRelative($script);
             return;

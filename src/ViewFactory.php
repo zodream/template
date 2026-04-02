@@ -204,7 +204,7 @@ class ViewFactory extends MagicObject {
      * @throws \Exception
      */
     protected function renderView(File|string $file): View {
-        if (!$file instanceof File && is_file($file)) {
+        if (!$file instanceof File && app_path()->isParentOf($file) && is_file($file)) {
             $file = new File($file);
         }
         if (!$file instanceof File) {
@@ -300,7 +300,7 @@ class ViewFactory extends MagicObject {
         if (empty($this->layout)) {
             return false;
         }
-        if ($this->layout instanceof File || is_file($this->layout)) {
+        if ($this->layout instanceof File || app_path()->isParentOf($this->layout)) {
             return $this->layout;
         }
         $code = substr($this->layout, 0, 1);
