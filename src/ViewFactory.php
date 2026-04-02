@@ -13,6 +13,7 @@ use Zodream\Infrastructure\Concerns\ConfigTrait;
 use Zodream\Infrastructure\Caching\FileCache;
 use Zodream\Disk\Directory;
 use Zodream\Disk\File;
+use Zodream\Disk\FileSystem;
 use Zodream\Template\Concerns\RegisterAssets;
 use Zodream\Template\Concerns\RegisterTheme;
 use Zodream\Disk\FileException;
@@ -204,7 +205,7 @@ class ViewFactory extends MagicObject {
      * @throws \Exception
      */
     protected function renderView(File|string $file): View {
-        if (!$file instanceof File && app_path()->isParentOf($file) && is_file($file)) {
+        if (!$file instanceof File && FileSystem::isFile($file)) {
             $file = new File($file);
         }
         if (!$file instanceof File) {
