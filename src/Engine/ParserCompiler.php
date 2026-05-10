@@ -25,9 +25,9 @@ use Zodream\Template\CharReader;
 
 {for:name}                      <?php while(name):?>
 {for:name,value}                <?php foreach(name as value):?>
-{for:name,key=>value}           <?php foreach(name as key=>value):?>
-{for:name,key=>value,length}     <?php $i = 0; foreach(name as key=>value): $i ++; if ($i > length): break; endif;?>
-{for:name,key=>value,>=h}        <?php foreach(name as key=>value): if (key >=h):?>
+{for:name,key=value}           <?php foreach(name as key=>value):?>
+{for:name,key=value,length}     <?php $i = 0; foreach(name as key=>value): $i ++; if ($i > length): break; endif;?>
+{for:name,key=value,>=h}        <?php foreach(name as key=>value): if (key >=h):?>
 {for:$i,$i>0,$i++}              <?php for($i; $i>0; $i++):?>
 {/for}                           <?php endforeach;?>
 
@@ -538,6 +538,7 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseInvokeFunc(CharReader $reader, int $max, string $func, string $tag = ':'): string {
+        assert($tag === ':');
         $method = sprintf('parse%sCall', Str::studly($func));
         if (method_exists($this, $method)) {
             return call_user_func([$this, $method], $reader, $max);
@@ -548,7 +549,7 @@ class ParserCompiler extends CompilerEngine {
 
     protected function isFuncToken(string $code): bool {
         return match ($code) {
-            ':', '(' => true,
+            ':' => true,
             default => false,
         };
     }
@@ -563,18 +564,29 @@ class ParserCompiler extends CompilerEngine {
      */
     protected function parseCallCode(CharReader $reader, string $tag, int $max, string $link = ',',
                                      bool $firstMaybeString = true, bool $mayBeArray = true): string {
+        assert($tag === ':');
         $data = [];
         while ($reader->canNextUntil($max)) {
             // 只有第一个会被解析成字符串
-            $token = $this->nextScope($reader, $max, ')', !$firstMaybeString || !empty($data));
+            $token = $this->nextScope($reader, $max, ';', !$firstMaybeString || !empty($data));
             if ($tag === '(' && $token === ')') {
                 break;
             }
             if ($token === ';') {
-                $reader->back();
+                // $reader->back();
                 break;
             }
             if ($token === ',') {
+                continue;
+            }
+            if ($token === '.') {
+                $func = $this->parseThis($reader, $max);
+                $args = $this->nextToken($reader, $max);
+                if (empty($func) || str_starts_with($args, '$')) {
+                    $data[] = 'null';
+                } else {
+                    $data[] = $func.$args;
+                }
                 continue;
             }
             if ($token === '->') {
@@ -626,13 +638,43 @@ class ParserCompiler extends CompilerEngine {
         }
         $reader->jumpWhitespace();
         $i = $reader->position() + 1;
+        $isFirst = true;
         while ($reader->canNextUntil($max)) {
+            $cur = $reader->current();
             $code = $reader->next();
             if ($code === '') {
                 break;
             }
+            if ($isFirst) {
+                if ($code === '.') {
+                    if (!$this->isNumeric($reader->next()) || $this->isAlphabet($cur)) {
+                        $reader->back();
+                        break;
+                    }
+                    while ($reader->canNextUntil($max)) {
+                        $code = $reader->next();
+                        if (!$this->isNumeric($code)) {
+                            $reader->back();
+                            break;
+                        }
+                    }
+                    break;
+                }
+                if ($this->isNumeric($code)) {
+                    while ($reader->canNextUntil($max)) {
+                        $code = $reader->next();
+                        if (!$this->isNumeric($code) && $code !== '.') {
+                            $reader->back();
+                            break;
+                        }
+                    }
+                    break;
+                }
+            }
+            $isFirst = false;
             $isSymbol = $this->isSymbol($code);
             if (!$this->isWhitespace($code) && !$isSymbol && !$this->isBracket($code)) {
+                
                 continue;
             }
             if ($reader->position() - $i > 0) {
@@ -736,10 +778,10 @@ class ParserCompiler extends CompilerEngine {
             }
             return $this->parseArrayQuery($reader, $next, $max, $token, true);
         }
-        $i = $reader->nextIs(':', '(');
+        $i = $reader->nextIs(':');
         if ($i >= 0) {
             $reader->seekOffset(1);
-            return $this->parseInvokeFunc($reader, $max, $token, $i > 0 ? '(' : ':');
+            return $this->parseInvokeFunc($reader, $max, $token, ':');
         }
         return $this->parseWordToValue($token);
     }
@@ -836,6 +878,36 @@ class ParserCompiler extends CompilerEngine {
     }
 
     /**
+     * 是否是数字
+     */
+    protected function isNumeric(string $code): bool {
+        $val = ord($code);
+        return $val >= 48 && $val <= 57;
+    }
+
+    /**
+     * 是否是大写字母
+     */
+    protected function isUpperAlphabet(string $code): bool {
+        $val = ord($code);
+        return $val >= 65 && $val <= 90;
+    }
+    /**
+     * 是否是小写字母
+     */
+    protected function isLowerAlphabet(string $code): bool {
+        $val = ord($code);
+        return $val >= 97 && $val <= 122;
+    }
+    /**
+     * 是否是字母
+     */
+    protected function isAlphabet(string $code): bool {
+        $val = ord($code);
+        return ($val >= 65 && $val <= 90) || ($val >= 97 && $val <= 122);
+    }
+
+    /**
      * 是否是运算符
      * @param string $code
      * @return bool
@@ -871,11 +943,12 @@ class ParserCompiler extends CompilerEngine {
     }
 
     protected function parseArray(CharReader $reader, string $tag, int $max, string $first = ''): string {
+        assert($tag === '[');
         $data = [];
         if ($first !== '') {
             $data[] = $first;
         }
-        $endTag = $tag === '(' ? ')' : ']';
+        $endTag = ']';
         while ($reader->canNextUntil($max)) {
             $token = $this->nextScope($reader, $max, $endTag, !empty($data));
             if ($token === $endTag) {
@@ -910,6 +983,10 @@ class ParserCompiler extends CompilerEngine {
             $token = $this->nextToken($reader, $max);
             if ($token === ' ') {
                 continue;
+            }
+            if ($token === ';') {
+                $this->moveNextStop = true;
+                break;
             }
             if ($token !== '' && $isSymbolStop &&
                 ($this->isOperatorSymbol($token[0]) || $this->isBracket($token[0]))
@@ -982,6 +1059,10 @@ class ParserCompiler extends CompilerEngine {
             $reader->back();
         }
         $first = $reader->indexOf(',', 0, $max);
+        $other = $reader->indexOf(';', 0, $max);
+        if ($other > 0 && ($first < 0 || $other < $first)) {
+            $first = $other;
+        }
         if ($first < 0) {
             return sprintf('if (%s):',
                 $this->parseCallCode($reader, ':', $max, ' ', false, false));
@@ -990,6 +1071,8 @@ class ParserCompiler extends CompilerEngine {
         $func = $this->parseCallCode($reader, ':', $first + 1, ' ', false, false);
         // $reader->seek($first + 1);
         if ($second < 0) {
+            $this->moveNextStop = false;
+            // dr($this->moveNextStop, $this->nextToken($reader, $max));
             $case = $this->parseCallCode($reader, ':', $max, ' ', false);
             return sprintf('if (%s) { echo %s; }', $func, $case);
         }
@@ -1022,18 +1105,28 @@ class ParserCompiler extends CompilerEngine {
         $reader->seek($first);
         if ($second < 0) {
             $this->forTags[] = 'foreach';
-            $case = $this->parseInlineCode($reader, $max);
+            if ($reader->indexOf('=') > 0) {
+                $case = implode(' => ', $this->formatForItem($reader->substr($first + 1, $max)));
+            } else {
+                $case = $this->parseInlineCode($reader, $max);
+            }
             return sprintf('if (!empty(%s)): foreach (%s as %s):', $func, $func, $case ?: '$item');
         }
-        $case = $this->parseInlineCode($reader, $second);
+        $key = '';
+        if ($reader->indexOf('=', 0, $second) > 0) {
+            $args = $this->formatForItem($reader->substr($first + 1, $second));
+            $case = implode(' => ', $args);
+            $key = $args[0];
+        } else {
+            $case = $this->parseInlineCode($reader, $second);
+        }
         $reader->seek($second);
         $i = $reader->nextIs('<', '>', '=');
         if ($i >= 0) {
-            list($key, $item) = $this->formatForItem($reader->substr($first + 1, $second));
             $this->forTags[] = 'foreach';
-            return sprintf('if (!empty(%s)): foreach(%s as %s=>%s): if (!(%s %s)): break; endif;',
+            return sprintf('if (!empty(%s)): foreach(%s as %s): if (!(%s %s)): break; endif;',
                 $func,
-                $func, $key, $item, $key,  $this->parseInlineCode($reader, $max));
+                $func, $case, $key,  $this->parseInlineCode($reader, $max));
         }
         $third = $this->parseInlineCode($reader, $max);
         if ($this->isJudge($case) && $this->hasTag($third, ['+', '-', '*', '/', '%'])) {
@@ -1068,8 +1161,11 @@ class ParserCompiler extends CompilerEngine {
     protected function formatForItem(string $content): array {
         $key = '$key';
         $item = $content;
-        if (str_contains($content, '=>')) {
-            list($key, $item) = explode('=>', $content);
+        if (str_contains($content, '=')) {
+            list($key, $item) = explode('=', $content);
+            if (str_starts_with($item, '>')) {
+                $item = substr($item, 1);
+            }
         } elseif (str_contains($content, ' ')) {
             list($key, $item) = explode(' ', $content);
         }

@@ -4,15 +4,15 @@ namespace Zodream\Template;
 
 class Buffer {
 
-    protected $lines;
+    protected array $lines;
 
-    protected $line;
+    protected string $line;
 
-    protected $lineno;
+    protected int $lineno;
 
-    protected $column;
+    protected int $column;
 
-    public function __construct($string, $lineno = 1) {
+    public function __construct(string $string, int $lineno = 1) {
         $this->lines = preg_split('~\r\n|\n|\r~', $string);
         $this->lineno = $lineno - 1;
     }
@@ -46,7 +46,7 @@ class Buffer {
         $this->line .= "\n" . array_shift($this->lines);
     }
 
-    public function replaceLine($string) {
+    public function replaceLine(string $string) {
         $this->line = $string;
     }
 
@@ -78,7 +78,7 @@ class Buffer {
         return $chars;
     }
 
-    public function match($pattern, &$match = null, $eat = true) {
+    public function match(string $pattern, &$match = null, bool $eat = true) {
         if ($count = preg_match($pattern, $this->line, $match, PREG_OFFSET_CAPTURE)) {
             $pos = array();
             foreach ($match as $key => &$capture) {
@@ -97,7 +97,7 @@ class Buffer {
         return $count > 0;
     }
 
-    public function eat($string) {
+    public function eat(string $string) {
         $this->line = (string) substr($this->line, strlen($string));
         $this->column += strlen($string);
     }
