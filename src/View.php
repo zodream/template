@@ -170,10 +170,10 @@ class View {
         while (ob_get_level() > $obLevel) {
             ob_end_clean();
         }
-        throw $e instanceof RuntimeException ? $e : new TemplateException(
+        throw ($e instanceof RuntimeException ? $e : new TemplateException(
             $this->sourceFile,
-            $this->file,
-            $e->getMessage(), (int)$e->getCode(), $e);
+            $e->getFile(),
+            $e->getMessage(), (int)$e->getCode(), $e));
     }
 
     /**
