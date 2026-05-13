@@ -181,11 +181,11 @@ class View {
      * @param integer|string|null $time
      * @return string
      */
-    public function time(mixed $time = null): string {
+    public function time(mixed $time = null, string $format = 'Y-m-d H:i:s'): string {
         if (is_null($time)) {
             return '';
         }
-        return Time::format($time);
+        return Time::format($time, $format);
     }
 
     /**
