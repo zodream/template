@@ -103,7 +103,7 @@ class ViewFactory extends MagicObject {
      * @param $directory
      * @return $this
      */
-    public function setDirectory($directory) {
+    public function setDirectory(mixed $directory) {
         if (!$directory instanceof Directory) {
             $directory = app_path()->childDirectory($directory);
         }

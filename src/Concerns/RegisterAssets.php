@@ -39,7 +39,7 @@ trait RegisterAssets {
     protected array $sections = [];
 
 
-    public function registerAssetsMap($files, $url = null) {
+    public function registerAssetsMap(mixed $files, mixed $url = null) {
         if (!is_array($files)) {
             $files = [(string)$files => $url];
         }
@@ -49,7 +49,7 @@ trait RegisterAssets {
         return $this;
     }
 
-    public function getAssetFromMaps($file) {
+    public function getAssetFromMaps(mixed $file) {
         return is_string($file) && isset($this->assetsMaps[$file])
             ? $this->assetsMaps[$file] : $file;
     }
@@ -68,7 +68,7 @@ trait RegisterAssets {
      * @return AssetFile
      * @throws Exception
      */
-    public function getAssetFile($file) {
+    public function getAssetFile(mixed $file) {
         if (is_file($file)) {
             return new AssetFile($file);
         }
@@ -159,7 +159,7 @@ trait RegisterAssets {
      * @param null $key
      * @return $this
      */
-    public function registerMetaTag($content, array $options = array(), $key = null) {
+    public function registerMetaTag(string $content, array $options = [], mixed $key = null) {
         if ($key === null) {
             $this->currentRegisterAssets['metaTags'][] = Html::meta($content, $options);
         } else {
@@ -174,7 +174,7 @@ trait RegisterAssets {
      * @param null $key
      * @return $this
      */
-    public function registerLinkTag($url, array $options = array(), $key = null) {
+    public function registerLinkTag(string $url, array $options = [], mixed $key = null) {
         if ($key === null) {
             $this->currentRegisterAssets['linkTags'][] = Html::link($url, $options);
         } else {
@@ -183,7 +183,7 @@ trait RegisterAssets {
         return $this;
     }
 
-    public function registerCss($css, $key = null) {
+    public function registerCss(string $css, mixed $key = null) {
         $key = $key ?: md5($css);
         $this->currentRegisterAssets['css'][$key] = Html::style($css);
         return $this;
@@ -196,7 +196,7 @@ trait RegisterAssets {
      * @return static
      * @throws Exception
      */
-    public function registerCssFile($urls, array $options = array(), $key = null) {
+    public function registerCssFile(string|array $urls, array $options = [], mixed $key = null) {
         $options['rel'] = 'stylesheet';
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;
@@ -205,13 +205,13 @@ trait RegisterAssets {
         return $this;
     }
 
-    public function registerJs($js, $position = View::HTML_FOOT, $key = null) {
+    public function registerJs(string $js, string $position = View::HTML_FOOT, mixed $key = null) {
         $key = $key ?: md5($js);
         $this->currentRegisterAssets['js'][$position][$key] = $js;
         return $this;
     }
 
-    public function registerJsFile($urls, array $options = [], mixed $key = null) {
+    public function registerJsFile(string|array $urls, array $options = [], mixed $key = null) {
         $position = Arr::remove($options, 'position', View::HTML_FOOT);
         foreach ((array)$urls as $url) {
             $k = $key ?: $url;

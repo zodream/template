@@ -321,12 +321,12 @@ class View {
      * @param string|null $key
      * @return View
      */
-    public function registerMetaTag(string $content, array $options = array(), string|null $key = null) {
+    public function registerMetaTag(string $content, array $options = [], string|null $key = null) {
         $this->factory->registerMetaTag($content, $options, $key);
         return $this;
     }
 
-    public function registerLinkTag(mixed $url, array $options = array(), string|null $key = null) {
+    public function registerLinkTag(mixed $url, array $options = [], string|null $key = null) {
         $this->factory->registerLinkTag($url, $options, $key);
         return $this;
     }
@@ -336,7 +336,7 @@ class View {
         return $this;
     }
 
-    public function registerCssFile($url, array $options = array(), $key = null) {
+    public function registerCssFile(string|array $url, array $options = [], string|null $key = null) {
         $this->factory->registerCssFile($url, $options, $key);
         return $this;
     }
@@ -346,12 +346,12 @@ class View {
         return $this;
     }
 
-    public function registerJsFile($url, array $options = [], $key = null) {
+    public function registerJsFile(string|array $url, array $options = [], string|null $key = null) {
         $this->factory->registerJsFile($url, $options, $key);
         return $this;
     }
     
-    public function __set($name, $value) {
+    public function __set(string $name, mixed $value) {
         if ($name === 'layout') {
             $this->factory->setLayout($value);
             return;
@@ -359,15 +359,15 @@ class View {
         $this->factory->set($name, $value);
     }
 
-    public function __get($name) {
+    public function __get(string $name) {
         return $this->factory->get($name);
     }
     
-    public function __unset($name) {
+    public function __unset(string $name) {
         $this->factory->deleteAttribute($name);
     }
 
-    public function __call($name, array $arguments = []) {
+    public function __call(string $name, array $arguments = []) {
         if (method_exists($this->factory, $name)) {
             $res = call_user_func_array([$this->factory, $name], $arguments);
             return $res && $res instanceof ViewFactory ? $this : $res;
