@@ -1,4 +1,5 @@
 <?php
+declare(strict_types=1);
 namespace Zodream\Template\Concerns;
 /**
  * 自定义视图函数
